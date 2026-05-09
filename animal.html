@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>동물의 구성 단계 2048 (수찬T 에디션)</title>
+    <style>
+        :root {
+            --grid-size: 340px;
+            --cell-size: 72.5px;
+            --spacing: 10px;
+            --transition-speed: 80ms; 
+        }
+
+        body {
+            font-family: 'Malgun Gothic', sans-serif;
+            display: flex; flex-direction: column; align-items: center;
+            background-color: #f0f9ff; color: #1e293b;
+            margin: 0; min-height: 100vh; touch-action: none;
+        }
+        h1 { font-size: 24px; margin: 15px 0 5px 0; color: #0369a1; }
+        
+        /* 제작자 표시 스타일 */
+        .creator {
+            font-size: 14px; color: #64748b; margin-bottom: 10px; font-weight: bold;
+        }
+
+        .score-container {
+            background-color: #38bdf8; padding: 8px 20px;
+            font-size: 18px; color: white; border-radius: 5px;
+            margin-bottom: 15px; font-weight: bold;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .grid-container {
+            position: relative; 
+            width: var(--grid-size); height: var(--grid-size);
+            background-color: #94a3b8; border-radius: 8px;
+            box-sizing: border-box;
+        }
+        
+        .grid-cell, .tile {
+            position: absolute; width: var(--cell-size); height: var(--cell-size);
+            top: 0; left: 0; border-radius: 4px;
+        }
+
+        .grid-cell { background-color: rgba(255, 255, 255, 0.3); z-index: 1; }
+
+        .tile {
+            transition: transform var(--transition-speed) ease-in-out; 
+            z-index: 10; display: flex; justify-content: center; align-items: center;
+        }
+
+        .tile-inner {
+            width: 100%; height: 100%; border-radius: 4px;
+            display: flex; justify-content: center; align-items: center;
+            font-weight: bold; font-size: 16px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        /* 단계별 블루 테마 */
+        .tile[data-val="0"] .tile-inner { background: #ffffff; color: #0369a1; }
+        .tile[data-val="1"] .tile-inner { background: #e0f2fe; color: #0369a1; }
+        .tile[data-val="2"] .tile-inner { background: #bae6fd; color: #0369a1; }
+        .tile[data-val="3"] .tile-inner { background: #7dd3fc; color: #075985; }
+        .tile[data-val="4"] .tile-inner { background: #38bdf8; color: white; }
+        .tile[data-val="5"] .tile-inner { background: #0ea5e9; color: white; }
+        .tile[data-val="6"] .tile-inner { background: #0284c7; color: white; }
+
+        .tile-new .tile-inner { animation: appear 100ms ease-out; }
+        @keyframes appear { from { opacity: 0; transform: scale(0.5); } to { opacity: 1; transform: scale(1); } }
+        .tile-merged .tile-inner { animation: pop 100ms ease-in-out; }
+        @keyframes pop { 0% { transform: scale(1); } 50% { transform: scale(1.15); } 100% { transform: scale(1); } }
+
+        #game-over {
+            display: none; position: absolute; top: 0; left: 0;
+            width: 100%; height: 100%; background: rgba(255, 255, 255, 0.9);
+            z-index: 1000; flex-direction: column; justify-content: center;
+            align-items: center; border-radius: 8px; text-align: center;
+        }
+        .retry-btn {
+            background-color: #0ea5e9; color: white; padding: 12px 24px;
+            border: none; border-radius: 5px; cursor: pointer; font-size: 18px; font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>동물의 구성 단계 2048</h1>
+    <div class="creator">제작자: 수찬T</div>
+    
+    <div class="score-container">점수: <span id="score">0</span></div>
+
+    <div class="grid-container" id="grid-container">
+        <div id="game-over">
+            <h2 style="color: #0369a1; font-size: 32px; margin: 0;">Game Over!</h2>
+            <p id="final-stats" style="font-size: 18px; margin: 20px 0; line-height: 1.5;"></p>
+            <button class="retry-btn" onclick="setupGame()">다시 도전</button>
+        </div>
+    </div>
+
+    <div style="margin-top:15px; font-weight:bold; color:#0369a1;">세포→조직→기관→기관계→개체</div>
+    <div style="font-size:12px; color:#64748b; margin-top:5px;">방향키나 스와이프로 빠르게 합치세요!</div>
+
+    <script>
+        const steps = ["세포", "조직", "기관", "기관계", "개체", "군집", "생태계"];
+        const size = 4;
+        const spacing = 10;
+        const cellSize = 72.5; 
+        const grid = document.getElementById('grid-container');
+        let board = [];
+        let score = 0;
+        let isGameOver = false;
+
+        function getTranslate(pos) { return pos * (cellSize + spacing) + spacing; }
+
+        function createBackground() {
+            for (let r = 0; r < size; r++) {
+                for (let c = 0; c < size; c++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'grid-cell';
+                    cell.style.transform = `translate(${getTranslate(c)}px, ${getTranslate(r)}px)`;
+                    grid.appendChild(cell);
+                }
+            }
+        }
+
+        function setupGame() {
+            grid.querySelectorAll('.tile').forEach(t => t.remove());
+            board = Array.from({ length: size }, () => Array(size).fill(null));
+            score = 0;
+            isGameOver = false;
+            document.getElementById('score').innerText = score;
+            document.getElementById('game-over').style.display = 'none';
+            addTile(); addTile();
+        }
+
+        function addTile() {
+            let empty = [];
+            for (let r = 0; r < size; r++)
+                for (let c = 0; c < size; c++)
+                    if (!board[r][c]) empty.push({ r, c });
+            
+            if (empty.length > 0) {
+                let { r, c } = empty[Math.floor(Math.random() * empty.length)];
+                let tile = new Tile(r, c, 0);
+                tile.element.classList.add('tile-new');
+                board[r][c] = tile;
+            }
+        }
+
+        class Tile {
+            constructor(r, c, val) {
+                this.r = r; this.c = c; this.val = val;
+                this.element = document.createElement('div');
+                this.inner = document.createElement('div');
+                this.element.className = 'tile';
+                this.inner.className = 'tile-inner';
+                this.element.appendChild(this.inner);
+                this.updateDisplay();
+                grid.appendChild(this.element);
+            }
+            updateDisplay() {
+                this.element.style.transform = `translate(${getTranslate(this.c)}px, ${getTranslate(this.r)}px)`;
+                this.element.setAttribute('data-val', this.val);
+                this.inner.innerText = steps[this.val] || "최고";
+            }
+            upgrade() {
+                this.val++;
+                setTimeout(() => {
+                    this.updateDisplay();
+                    this.element.classList.add('tile-merged');
+                    setTimeout(() => this.element.classList.remove('tile-merged'), 100);
+                }, 85); 
+            }
+            remove() { setTimeout(() => this.element.remove(), 85); }
+        }
+
+        function checkGameOver() {
+            for (let r = 0; r < size; r++) {
+                for (let c = 0; c < size; c++) {
+                    if (!board[r][c]) return false;
+                }
+            }
+            for (let r = 0; r < size; r++) {
+                for (let c = 0; c < size; c++) {
+                    const val = board[r][c].val;
+                    if (r < size - 1 && board[r+1][c].val === val) return false;
+                    if (c < size - 1 && board[r][c+1].val === val) return false;
+                }
+            }
+            return true;
+        }
+
+        function showGameOver() {
+            isGameOver = true;
+            let maxVal = 0;
+            board.flat().forEach(t => { if(t && t.val > maxVal) maxVal = t.val; });
+            const finalStats = document.getElementById('final-stats');
+            finalStats.innerHTML = `최종 점수: ${score}점<br>달성 단계: [${steps[maxVal] || "최고"}]`;
+            document.getElementById('game-over').style.display = 'flex';
+        }
+
+        function move(dir) {
+            if (isGameOver) return;
+            let moved = false;
+            let rows = dir === 'down' ? [3, 2, 1, 0] : [0, 1, 2, 3];
+            let cols = dir === 'right' ? [3, 2, 1, 0] : [0, 1, 2, 3];
+
+            rows.forEach(r => {
+                cols.forEach(c => {
+                    let tile = board[r][c];
+                    if (!tile) return;
+                    let dr = dir === 'up' ? -1 : dir === 'down' ? 1 : 0;
+                    let dc = dir === 'left' ? -1 : dir === 'right' ? 1 : 0;
+                    let currR = r, currC = c;
+                    let nextR = r + dr, nextC = c + dc;
+                    while (nextR >= 0 && nextR < size && nextC >= 0 && nextC < size) {
+                        let target = board[nextR][nextC];
+                        if (!target) {
+                            board[nextR][nextC] = tile; board[currR][currC] = null;
+                            tile.r = nextR; tile.c = nextC; tile.updateDisplay();
+                            currR = nextR; currC = nextC; nextR += dr; nextC += dc; moved = true;
+                        } else if (target.val === tile.val && !target.merged) {
+                            board[currR][currC] = null;
+                            tile.r = nextR; tile.c = nextC; tile.updateDisplay(); tile.remove();
+                            target.upgrade(); target.merged = true;
+                            score += Math.pow(2, target.val); moved = true; break;
+                        } else break;
+                    }
+                });
+            });
+
+            if (moved) {
+                board.flat().forEach(t => { if(t) t.merged = false; });
+                setTimeout(() => {
+                    addTile();
+                    if (checkGameOver()) showGameOver();
+                }, 120);
+                document.getElementById('score').innerText = score;
+            }
+        }
+
+        let tsX, tsY;
+        window.addEventListener('touchstart', e => { tsX = e.touches[0].clientX; tsY = e.touches[0].clientY; }, {passive: false});
+        window.addEventListener('touchend', e => {
+            let dx = e.changedTouches[0].clientX - tsX, dy = e.changedTouches[0].clientY - tsY;
+            if (Math.max(Math.abs(dx), Math.abs(dy)) < 30) return;
+            move(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up'));
+        }, {passive: false});
+        window.addEventListener('keydown', e => {
+            if(e.key.includes('Arrow')) { e.preventDefault(); move(e.key.replace('Arrow','').toLowerCase()); }
+        });
+
+        createBackground();
+        setupGame();
+    </script>
+</body>
+</html>
