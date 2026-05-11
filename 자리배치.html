@@ -28,7 +28,7 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useCallback } = React;
+        const { useState, useEffect, useCallback, useMemo } = React;
 
         // --- Icons ---
         const IconBase = ({ children, size = 24, className = "" }) => (
@@ -59,8 +59,8 @@
 
         const SeatArrangementApp = () => {
             const [step, setStep] = useState('teacher_setup'); 
+            const [groupInput, setGroupInput] = useState("2, 2, 2"); // 분단 입력 상태
             const [rows, setRows] = useState(5);
-            const [cols, setCols] = useState(6);
             const [seatLayout, setSeatLayout] = useState([]);
             const [maleInput, setMaleInput] = useState("김철수, 박민수, 홍길동, 이대호");
             const [femaleInput, setFemaleInput] = useState("이영희, 최지윤, 김태희, 전지현");
@@ -74,14 +74,22 @@
             const [displayNames, setDisplayNames] = useState({}); 
             const [isAnimating, setIsAnimating] = useState(false);
 
+            // 분단 로직 계산
+            const activeGroups = useMemo(() => {
+                const parsed = groupInput.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n) && n > 0);
+                return parsed.length > 0 ? parsed : [6]; // 기본값: 1개 분단 6열
+            }, [groupInput]);
+
+            const activeCols = useMemo(() => activeGroups.reduce((a, b) => a + b, 0), [activeGroups]);
+
             useEffect(() => {
-                const newSize = rows * cols;
+                const newSize = rows * activeCols;
                 setSeatLayout(prev => {
                     const newLayout = Array(newSize).fill(true);
-                    for (let i = 0; i < Math.min(prev.length, newSize); i++) newLayout[i] = prev[i];
+                    for (let i = 0; i < Math.min(prev?.length || 0, newSize); i++) newLayout[i] = prev[i];
                     return newLayout;
                 });
-            }, [rows, cols]);
+            }, [rows, activeCols]);
 
             const parseStudents = useCallback((males, females) => {
                 const maleList = males.split(/[\n,]+/).map(s => s.trim()).filter(s => s !== "");
@@ -141,16 +149,21 @@
                 let girls = availableStudents.filter(s => studentGenders[s] === 'F').sort(() => Math.random() - 0.5);
 
                 const remainingSeats = activeSeats.filter(idx => !assignmentMap[idx]);
-                const unassignedSeats = [];
 
+                // 1차 기본 배정 (조건에 맞게)
                 remainingSeats.forEach(idx => {
                     const reqGender = seatGenderConstraints[idx];
                     if (reqGender === 'M' && boys.length > 0) assignmentMap[idx] = boys.pop();
                     else if (reqGender === 'F' && girls.length > 0) assignmentMap[idx] = girls.pop();
-                    else unassignedSeats.push(idx);
                 });
 
-                // 💡 [보강된 로직] 한 줄에 여러 명을 적어도 모든 조합을 금지 목록에 추가
+                // 나머지 인원 무작위 배정
+                const leftovers = [...boys, ...girls].sort(() => Math.random() - 0.5);
+                remainingSeats.forEach(idx => {
+                    if (!assignmentMap[idx]) assignmentMap[idx] = leftovers.pop();
+                });
+
+                // 금지 목록 세팅 (3명 이상 완벽 교차 검증)
                 const avoidSet = new Set();
                 avoidPairsInput.split('\n').forEach(line => {
                     const parts = line.split(',').map(s => s.trim()).filter(s => s);
@@ -164,47 +177,82 @@
                     }
                 });
 
-                const popValidPair = (pool) => {
-                    for (let i = 0; i < pool.length; i++) {
-                        for (let j = i + 1; j < pool.length; j++) {
-                            if (!avoidSet.has(`${pool[i]}-${pool[j]}`)) {
-                                const p1 = pool[i]; const p2 = pool[j];
-                                pool.splice(j, 1); pool.splice(i, 1);
-                                return [p1, p2];
+                // 각 좌석이 어느 분단(Group)에 속하는지 맵핑
+                const colToGroup = [];
+                activeGroups.forEach((gSize, gIdx) => {
+                    for(let i=0; i<gSize; i++) colToGroup.push(gIdx);
+                });
+
+                // 충돌 검사 함수 (같은 행, 같은 분단 내에서 바로 옆자리인지 확인)
+                const getConflicts = (currentMap) => {
+                    let conflicts = [];
+                    activeSeats.forEach(idx => {
+                        const row = Math.floor(idx / activeCols);
+                        const col = idx % activeCols;
+                        const rightIdx = idx + 1;
+                        
+                        // 우측 자리가 활성화되어 있고, 같은 행이며, 같은 분단에 속할 때만 검사
+                        if (
+                            seatLayout[rightIdx] && 
+                            Math.floor(rightIdx / activeCols) === row && 
+                            colToGroup[col] === colToGroup[col + 1]
+                        ) {
+                            const studentA = currentMap[idx];
+                            const studentB = currentMap[rightIdx];
+                            if (studentA && studentB && avoidSet.has(`${studentA}-${studentB}`)) {
+                                conflicts.push({ s1: idx, s2: rightIdx });
                             }
                         }
-                    }
-                    return pool.length >= 2 ? [pool.pop(), pool.pop()] : null;
+                    });
+                    return conflicts;
                 };
 
-                let pairSlots = [];
-                let singleSlots = [];
-                const isProcessed = new Set();
-                unassignedSeats.forEach(idx => {
-                    if (isProcessed.has(idx)) return;
-                    const isSameRow = Math.floor(idx / cols) === Math.floor((idx + 1) / cols);
-                    if (idx % 2 === 0 && isSameRow && unassignedSeats.includes(idx + 1)) {
-                        pairSlots.push([idx, idx + 1]); isProcessed.add(idx); isProcessed.add(idx + 1);
-                    } else singleSlots.push(idx);
-                });
+                // 스왑 기반 갈등 해소(Conflict Resolution)
+                let currentConflicts = getConflicts(assignmentMap);
+                let iterations = 0;
+                const MAX_ITER = 2000;
 
-                pairSlots.sort(() => Math.random() - 0.5);
-                while (boys.length >= 2 && pairSlots.length > 0) {
-                    const pair = popValidPair(boys);
-                    if (pair) { const slot = pairSlots.pop(); assignmentMap[slot[0]] = pair[0]; assignmentMap[slot[1]] = pair[1]; }
-                    else break;
-                }
-                while (girls.length >= 2 && pairSlots.length > 0) {
-                    const pair = popValidPair(girls);
-                    if (pair) { const slot = pairSlots.pop(); assignmentMap[slot[0]] = pair[0]; assignmentMap[slot[1]] = pair[1]; }
-                    else break;
+                while (currentConflicts.length > 0 && iterations < MAX_ITER) {
+                    iterations++;
+                    const conflict = currentConflicts[Math.floor(Math.random() * currentConflicts.length)];
+                    const seatToSwap = Math.random() > 0.5 ? conflict.s1 : conflict.s2;
+                    const studentA = assignmentMap[seatToSwap];
+
+                    // 바꿀 수 있는 후보 좌석 찾기 (고정석 제외, 성별 조건 일치)
+                    const validCandidates = remainingSeats.filter(candSeat => {
+                        if (candSeat === seatToSwap) return false;
+                        const studentB = assignmentMap[candSeat];
+                        const reqCand = seatGenderConstraints[candSeat];
+                        const reqSwap = seatGenderConstraints[seatToSwap];
+
+                        if (reqCand && studentA && studentGenders[studentA] !== reqCand) return false;
+                        if (reqSwap && studentB && studentGenders[studentB] !== reqSwap) return false;
+                        return true;
+                    });
+
+                    if (validCandidates.length > 0) {
+                        const candSeat = validCandidates[Math.floor(Math.random() * validCandidates.length)];
+                        
+                        // 스왑 진행
+                        const temp = assignmentMap[seatToSwap];
+                        assignmentMap[seatToSwap] = assignmentMap[candSeat];
+                        assignmentMap[candSeat] = temp;
+
+                        const newConflicts = getConflicts(assignmentMap);
+                        if (newConflicts.length <= currentConflicts.length || Math.random() < 0.1) {
+                            currentConflicts = newConflicts; // 상태 호전되거나 가끔 무작위 수용
+                        } else {
+                            // 원상 복구
+                            const tempRevert = assignmentMap[seatToSwap];
+                            assignmentMap[seatToSwap] = assignmentMap[candSeat];
+                            assignmentMap[candSeat] = tempRevert;
+                        }
+                    }
                 }
 
-                pairSlots.forEach(p => { singleSlots.push(p[0]); singleSlots.push(p[1]); });
-                const leftovers = [...boys, ...girls].sort(() => Math.random() - 0.5);
-                singleSlots.sort(() => Math.random() - 0.5).forEach(seat => {
-                    if (leftovers.length > 0) assignmentMap[seat] = leftovers.pop();
-                });
+                if (currentConflicts.length > 0) {
+                    console.warn("일부 짝꿍 분리 조건을 충족하지 못했습니다. 명단과 좌석 구조를 확인해주세요.");
+                }
 
                 setStep('shuffling');
                 runAnimation(assignmentMap);
@@ -221,106 +269,125 @@
             };
 
             const renderGridPreview = (mode) => (
-                <div className="grid gap-3 mx-auto transition-all duration-500" style={{ gridTemplateColumns: `repeat(${cols}, minmax(50px, 1fr))`, maxWidth: '900px' }}>
-                    {seatLayout.map((isActive, idx) => {
-                        const displayValue = (mode === 'result' || mode === 'shuffling') ? displayNames[idx] : null;
-                        if (mode === 'teacher_setup') {
-                            const fixedName = fixedAssignments[idx];
-                            const reqGender = seatGenderConstraints[idx];
-                            let cellClass = "bg-slate-100 border-slate-200 text-slate-300 hover:bg-slate-200";
-                            let cellContent = "X";
-                            if (isActive) {
-                                if (fixedName) { cellClass = `${getColorStyle(fixedName)} font-extrabold border-2`; cellContent = <div className="text-center"><div className="text-[10px] opacity-70">고정</div>{fixedName}</div>; }
-                                else if (reqGender) { cellClass = `${reqGender === 'M' ? 'bg-blue-100 border-blue-400 text-blue-600' : 'bg-pink-100 border-pink-400 text-pink-600'} border-2`; cellContent = reqGender === 'M' ? "남" : "여"; }
-                                else { cellClass = "bg-violet-100 border-violet-300 text-violet-500"; cellContent = <div className="w-2 h-2 bg-violet-400 rounded-full" />; }
-                            }
-                            return <div key={idx} onClick={() => handleGridClick(idx)} className={`aspect-square rounded-xl flex items-center justify-center border-2 transition-all text-xs font-bold cursor-pointer ${cellClass}`}>{cellContent}</div>;
-                        } else {
-                            if (!isActive) return <div key={idx} className="aspect-square bg-transparent" />;
-                            const isBoy = displayValue && studentGenders[displayValue] === 'M';
-                            const isGirl = displayValue && studentGenders[displayValue] === 'F';
-                            return (
-                                <div key={idx} className={`aspect-video sm:aspect-square rounded-xl flex items-center justify-center p-0 text-center font-extrabold text-2xl sm:text-3xl shadow-md border-2 transition-all duration-300 ${displayValue ? `bg-white ${isBoy ? 'border-blue-200 bg-blue-50 text-blue-800' : 'border-pink-200 bg-pink-50 text-pink-800'}` : 'bg-white/40 text-transparent border-transparent scale-95'} ${isAnimating ? 'animate-pulse scale-90' : 'hover:scale-105'}`}>
-                                    <span className="break-keep leading-tight">{displayValue || ""}</span>
-                                </div>
-                            );
-                        }
-                    })}
+                <div className="flex flex-col gap-3 mx-auto transition-all duration-500 w-fit max-w-full">
+                    {Array.from({ length: rows }).map((_, r) => (
+                        <div key={`row-${r}`} className="flex gap-4 sm:gap-8 justify-center">
+                            {activeGroups.map((gSize, gIdx) => {
+                                const colOffset = activeGroups.slice(0, gIdx).reduce((a, b) => a + b, 0);
+                                return (
+                                    <div key={`group-${r}-${gIdx}`} className="grid gap-2 sm:gap-3" style={{ gridTemplateColumns: `repeat(${gSize}, minmax(45px, 75px))` }}>
+                                        {Array.from({ length: gSize }).map((_, c) => {
+                                            const idx = r * activeCols + colOffset + c;
+                                            const isActive = seatLayout[idx];
+                                            const displayValue = (mode === 'result' || mode === 'shuffling') ? displayNames[idx] : null;
+                                            
+                                            if (mode === 'teacher_setup') {
+                                                const fixedName = fixedAssignments[idx];
+                                                const reqGender = seatGenderConstraints[idx];
+                                                let cellClass = "bg-slate-100 border-slate-200 text-slate-300 hover:bg-slate-200";
+                                                let cellContent = "X";
+                                                if (isActive) {
+                                                    if (fixedName) { cellClass = `${getColorStyle(fixedName)} font-extrabold border-2`; cellContent = <div className="text-center"><div className="text-[10px] opacity-70">고정</div>{fixedName}</div>; }
+                                                    else if (reqGender) { cellClass = `${reqGender === 'M' ? 'bg-blue-100 border-blue-400 text-blue-600' : 'bg-pink-100 border-pink-400 text-pink-600'} border-2`; cellContent = reqGender === 'M' ? "남" : "여"; }
+                                                    else { cellClass = "bg-violet-100 border-violet-300 text-violet-500"; cellContent = <div className="w-2 h-2 bg-violet-400 rounded-full" />; }
+                                                }
+                                                return <div key={idx} onClick={() => handleGridClick(idx)} className={`aspect-square rounded-xl flex items-center justify-center border-2 transition-all text-xs font-bold cursor-pointer ${cellClass}`}>{cellContent}</div>;
+                                            } else {
+                                                if (!isActive) return <div key={idx} className="aspect-square bg-transparent" />;
+                                                const isBoy = displayValue && studentGenders[displayValue] === 'M';
+                                                const isGirl = displayValue && studentGenders[displayValue] === 'F';
+                                                return (
+                                                    <div key={idx} className={`aspect-video sm:aspect-square rounded-xl flex items-center justify-center p-0 text-center font-extrabold text-xl sm:text-2xl shadow-md border-2 transition-all duration-300 ${displayValue ? `bg-white ${isBoy ? 'border-blue-200 bg-blue-50 text-blue-800' : 'border-pink-200 bg-pink-50 text-pink-800'}` : 'bg-white/40 text-transparent border-transparent scale-95'} ${isAnimating ? 'animate-pulse scale-90' : 'hover:scale-105'}`}>
+                                                        <span className="break-keep leading-tight">{displayValue || ""}</span>
+                                                    </div>
+                                                );
+                                            }
+                                        })}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    ))}
                 </div>
             );
 
-            if (step === 'teacher_setup') {
-                return (
-                    <div className="min-h-screen bg-slate-50 p-4 md:p-8 border-t-8 border-violet-500">
-                        <header className="max-w-6xl mx-auto mb-6 flex justify-between items-center bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
-                            <div><h1 className="text-2xl font-extrabold text-slate-800 flex items-center gap-2"><Settings className="text-violet-500" /> 선생님 전용 설정</h1></div>
-                            <Button onClick={() => setStep('public_standby')} variant="primary">준비 완료 (학생 화면) <ArrowRight size={18} /></Button>
-                        </header>
-                        <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6">
-                            <div className="lg:col-span-7 space-y-6">
-                                <Card className="bg-white border-slate-200">
-                                    <h2 className="text-lg font-bold text-slate-700 mb-4 flex items-center gap-2"><LayoutIcon size={20} /> 1. 자리 배치 및 타일 설정</h2>
-                                    <div className="flex gap-4 mb-4 bg-slate-50 p-3 rounded-xl">
-                                        <div className="flex-1"><label className="text-xs font-bold text-slate-500 mb-1 block">가로 (열)</label><input type="number" value={cols} onChange={(e) => setCols(parseInt(e.target.value) || 1)} className="w-full p-2 border-2 rounded-lg outline-none" /></div>
-                                        <div className="flex-1"><label className="text-xs font-bold text-slate-500 mb-1 block">세로 (행)</label><input type="number" value={rows} onChange={(e) => setRows(parseInt(e.target.value) || 1)} className="w-full p-2 border-2 rounded-lg outline-none" /></div>
-                                    </div>
-                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
-                                        {['toggle', 'M', 'F', 'clear_gender'].map(m => (
-                                            <button key={m} onClick={() => setClickMode(m)} className={`px-2 py-2 rounded-lg text-xs font-bold border-2 transition-all ${clickMode === m ? 'bg-violet-500 text-white border-violet-500' : 'bg-white text-slate-600 border-slate-200'}`}>
-                                                {m === 'toggle' ? '자리 On/Off' : m === 'M' ? '남학생 전용' : m === 'F' ? '여학생 전용' : '지정 해제'}
-                                            </button>
-                                        ))}
-                                    </div>
-                                    <div className="bg-slate-50 p-4 rounded-2xl border-2 border-dashed border-slate-200 overflow-auto max-h-[450px]">
-                                        <div className="w-full flex justify-center mb-6"><div className="bg-slate-800 text-white px-12 py-2 rounded-lg text-sm font-bold border-4 border-slate-600">칠 판</div></div>
-                                        {renderGridPreview('teacher_setup')}
-                                    </div>
-                                </Card>
-                            </div>
-                            <div className="lg:col-span-5 space-y-6">
-                                <Card className="bg-white border-slate-200">
-                                    <h2 className="text-lg font-bold mb-4 text-slate-700 flex items-center gap-2"><Users size={20} /> 2. 학생 명단</h2>
-                                    <div className="flex flex-col sm:flex-row gap-4 mb-2">
-                                        <div className="flex-1"><label className="block text-xs font-bold text-blue-600 mb-1">👦 남학생</label><textarea value={maleInput} onChange={(e) => setMaleInput(e.target.value)} className="w-full h-24 p-2 border-2 border-blue-100 rounded-xl text-sm resize-none outline-none" /></div>
-                                        <div className="flex-1"><label className="block text-xs font-bold text-pink-600 mb-1">👧 여학생</label><textarea value={femaleInput} onChange={(e) => setFemaleInput(e.target.value)} className="w-full h-24 p-2 border-2 border-pink-100 rounded-xl text-sm resize-none outline-none" /></div>
-                                    </div>
-                                    <div className="text-right text-xs font-bold text-slate-500">총 {students.length}명 인식</div>
-                                </Card>
-                                <Card className={`bg-white border-slate-200 ${clickMode === 'fix' ? 'ring-4 ring-emerald-100 border-emerald-400' : ''}`}>
-                                    <h2 className="text-lg font-bold mb-4 text-slate-700 flex items-center gap-2"><Target size={20} /> 3. 특정 자리 고정</h2>
-                                    <div className="flex gap-2"><input type="text" value={fixSeatName} onChange={(e) => setFixSeatName(e.target.value)} placeholder="학생 이름" className="flex-1 p-2 border-2 rounded-xl outline-none" />
-                                    <Button onClick={() => setClickMode(clickMode === 'fix' ? 'toggle' : 'fix')} variant={clickMode === 'fix' ? "dark" : "outline"} className="text-xs px-4">{clickMode === 'fix' ? "끄기" : "켜기"}</Button></div>
-                                </Card>
-                                <Card className="bg-white border-slate-200">
-                                    <h2 className="text-lg font-bold mb-4 text-slate-700 flex items-center gap-2"><Shield size={20} className="text-rose-500" /> 4. 짝꿍 분리 설정</h2>
-                                    <div className="bg-rose-50 p-2 rounded-lg mb-2 text-[11px] text-rose-800 italic">쉼표로 구분하면 여러 명도 한꺼번에 분리됩니다 (예: A, B, C)</div>
-                                    <textarea value={avoidPairsInput} onChange={(e) => setAvoidPairsInput(e.target.value)} placeholder="김철수, 이영희&#13;&#10;A, B, C, D" className="w-full h-20 p-3 border-2 border-slate-200 rounded-xl text-sm resize-none outline-none" />
-                                </Card>
-                            </div>
-                        </div>
-                    </div>
-                );
-            }
-
             return (
-                <div className="min-h-screen bg-slate-800 p-4 flex flex-col items-center justify-center relative overflow-hidden">
-                    <div className="absolute top-0 left-0 w-full h-full opacity-40 pointer-events-none">
-                        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-purple-500 rounded-full mix-blend-multiply filter blur-3xl animate-blob"></div>
-                        <div className="absolute top-1/3 right-1/4 w-96 h-96 bg-blue-500 rounded-full mix-blend-multiply filter blur-3xl animate-blob animation-delay-2000"></div>
-                        <div className="absolute bottom-1/4 left-1/2 w-96 h-96 bg-pink-500 rounded-full mix-blend-multiply filter blur-3xl animate-blob animation-delay-4000"></div>
+                <>
+                    {/* 워터마크 추가 */}
+                    <div className="fixed bottom-4 right-6 text-slate-400/60 text-sm font-black z-50 pointer-events-none tracking-widest">
+                        ver.수찬T
                     </div>
-                    <div className="z-10 w-full max-w-5xl flex flex-col items-center">
-                        <div className="w-full flex justify-between items-center mb-8 px-4">
-                            <button onClick={() => setStep('teacher_setup')} className="text-white/50 hover:text-white"><Settings size={24} /></button>
-                            <h1 className="text-4xl md:text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-purple-200 to-pink-200 tracking-wider">🎲 이달의 자리 배치 🎲</h1>
-                            <div className="w-6"></div>
+
+                    {step === 'teacher_setup' ? (
+                        <div className="min-h-screen bg-slate-50 p-4 md:p-8 border-t-8 border-violet-500">
+                            <header className="max-w-6xl mx-auto mb-6 flex justify-between items-center bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+                                <div><h1 className="text-2xl font-extrabold text-slate-800 flex items-center gap-2"><Settings className="text-violet-500" /> 선생님 전용 설정</h1></div>
+                                <Button onClick={() => setStep('public_standby')} variant="primary">준비 완료 (학생 화면) <ArrowRight size={18} /></Button>
+                            </header>
+                            <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6">
+                                <div className="lg:col-span-7 space-y-6">
+                                    <Card className="bg-white border-slate-200">
+                                        <h2 className="text-lg font-bold text-slate-700 mb-4 flex items-center gap-2"><LayoutIcon size={20} /> 1. 자리 배치 및 타일 설정</h2>
+                                        <div className="flex gap-4 mb-4 bg-slate-50 p-3 rounded-xl">
+                                            <div className="flex-1"><label className="text-xs font-bold text-slate-500 mb-1 block">분단 구성 (쉼표 구분)</label><input type="text" value={groupInput} onChange={(e) => setGroupInput(e.target.value)} placeholder="예: 2, 2, 2" className="w-full p-2 border-2 rounded-lg outline-none" /></div>
+                                            <div className="flex-1"><label className="text-xs font-bold text-slate-500 mb-1 block">세로 (행)</label><input type="number" value={rows} onChange={(e) => setRows(parseInt(e.target.value) || 1)} className="w-full p-2 border-2 rounded-lg outline-none" /></div>
+                                        </div>
+                                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
+                                            {['toggle', 'M', 'F', 'clear_gender'].map(m => (
+                                                <button key={m} onClick={() => setClickMode(m)} className={`px-2 py-2 rounded-lg text-xs font-bold border-2 transition-all ${clickMode === m ? 'bg-violet-500 text-white border-violet-500' : 'bg-white text-slate-600 border-slate-200'}`}>
+                                                    {m === 'toggle' ? '자리 On/Off' : m === 'M' ? '남학생 전용' : m === 'F' ? '여학생 전용' : '지정 해제'}
+                                                </button>
+                                            ))}
+                                        </div>
+                                        <div className="bg-slate-50 p-4 rounded-2xl border-2 border-dashed border-slate-200 overflow-auto max-h-[450px]">
+                                            <div className="w-full flex justify-center mb-6"><div className="bg-slate-800 text-white px-12 py-2 rounded-lg text-sm font-bold border-4 border-slate-600">칠 판</div></div>
+                                            {renderGridPreview('teacher_setup')}
+                                        </div>
+                                    </Card>
+                                </div>
+                                <div className="lg:col-span-5 space-y-6">
+                                    <Card className="bg-white border-slate-200">
+                                        <h2 className="text-lg font-bold mb-4 text-slate-700 flex items-center gap-2"><Users size={20} /> 2. 학생 명단</h2>
+                                        <div className="flex flex-col sm:flex-row gap-4 mb-2">
+                                            <div className="flex-1"><label className="block text-xs font-bold text-blue-600 mb-1">👦 남학생</label><textarea value={maleInput} onChange={(e) => setMaleInput(e.target.value)} className="w-full h-24 p-2 border-2 border-blue-100 rounded-xl text-sm resize-none outline-none" /></div>
+                                            <div className="flex-1"><label className="block text-xs font-bold text-pink-600 mb-1">👧 여학생</label><textarea value={femaleInput} onChange={(e) => setFemaleInput(e.target.value)} className="w-full h-24 p-2 border-2 border-pink-100 rounded-xl text-sm resize-none outline-none" /></div>
+                                        </div>
+                                        <div className="text-right text-xs font-bold text-slate-500">총 {students.length}명 인식</div>
+                                    </Card>
+                                    <Card className={`bg-white border-slate-200 ${clickMode === 'fix' ? 'ring-4 ring-emerald-100 border-emerald-400' : ''}`}>
+                                        <h2 className="text-lg font-bold mb-4 text-slate-700 flex items-center gap-2"><Target size={20} /> 3. 특정 자리 고정</h2>
+                                        <div className="flex gap-2"><input type="text" value={fixSeatName} onChange={(e) => setFixSeatName(e.target.value)} placeholder="학생 이름" className="flex-1 p-2 border-2 rounded-xl outline-none" />
+                                        <Button onClick={() => setClickMode(clickMode === 'fix' ? 'toggle' : 'fix')} variant={clickMode === 'fix' ? "dark" : "outline"} className="text-xs px-4">{clickMode === 'fix' ? "끄기" : "켜기"}</Button></div>
+                                    </Card>
+                                    <Card className="bg-white border-slate-200">
+                                        <h2 className="text-lg font-bold mb-4 text-slate-700 flex items-center gap-2"><Shield size={20} className="text-rose-500" /> 4. 짝꿍 분리 설정</h2>
+                                        <div className="bg-rose-50 p-2 rounded-lg mb-2 text-[11px] text-rose-800 italic">쉼표로 구분하면 여러 명도 한꺼번에 교차 분리됩니다 (예: A, B, C). <br/>단, '같은 분단' 내의 바로 옆자리인 경우에만 짝꿍으로 인식하여 떨어뜨립니다.</div>
+                                        <textarea value={avoidPairsInput} onChange={(e) => setAvoidPairsInput(e.target.value)} placeholder="김철수, 이영희&#13;&#10;A, B, C, D" className="w-full h-20 p-3 border-2 border-slate-200 rounded-xl text-sm resize-none outline-none" />
+                                    </Card>
+                                </div>
+                            </div>
                         </div>
-                        <div className="w-full flex justify-center mb-8"><div className="bg-slate-700 text-slate-300 px-24 py-4 rounded-2xl text-xl font-bold border-b-8 border-slate-900">칠 판 (앞)</div></div>
-                        <div className="w-full mb-12">{renderGridPreview(step)}</div>
-                        {step === 'public_standby' && <Button onClick={calculateSeating} variant="primary" className="text-xl px-12 py-5 animate-bounce"><Play size={24} fill="currentColor" /> 자리 뽑기 시작!</Button>}
-                        {step === 'result' && <Button onClick={() => setStep('public_standby')} variant="secondary" className="text-lg px-8 shadow-xl mt-4">다시 뽑기</Button>}
-                    </div>
-                </div>
+                    ) : (
+                        <div className="min-h-screen bg-slate-800 p-4 flex flex-col items-center justify-center relative overflow-hidden">
+                            <div className="absolute top-0 left-0 w-full h-full opacity-40 pointer-events-none">
+                                <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-purple-500 rounded-full mix-blend-multiply filter blur-3xl animate-blob"></div>
+                                <div className="absolute top-1/3 right-1/4 w-96 h-96 bg-blue-500 rounded-full mix-blend-multiply filter blur-3xl animate-blob animation-delay-2000"></div>
+                                <div className="absolute bottom-1/4 left-1/2 w-96 h-96 bg-pink-500 rounded-full mix-blend-multiply filter blur-3xl animate-blob animation-delay-4000"></div>
+                            </div>
+                            <div className="z-10 w-full max-w-5xl flex flex-col items-center">
+                                <div className="w-full flex justify-between items-center mb-8 px-4">
+                                    <button onClick={() => setStep('teacher_setup')} className="text-white/50 hover:text-white"><Settings size={24} /></button>
+                                    <h1 className="text-4xl md:text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-purple-200 to-pink-200 tracking-wider">🎲 이달의 자리 배치 🎲</h1>
+                                    <div className="w-6"></div>
+                                </div>
+                                <div className="w-full flex justify-center mb-8"><div className="bg-slate-700 text-slate-300 px-24 py-4 rounded-2xl text-xl font-bold border-b-8 border-slate-900">칠 판 (앞)</div></div>
+                                <div className="w-full mb-12">{renderGridPreview(step)}</div>
+                                {step === 'public_standby' && <Button onClick={calculateSeating} variant="primary" className="text-xl px-12 py-5 animate-bounce"><Play size={24} fill="currentColor" /> 자리 뽑기 시작!</Button>}
+                                {step === 'result' && <Button onClick={() => setStep('public_standby')} variant="secondary" className="text-lg px-8 shadow-xl mt-4">다시 뽑기</Button>}
+                            </div>
+                        </div>
+                    )}
+                </>
             );
         };
 
