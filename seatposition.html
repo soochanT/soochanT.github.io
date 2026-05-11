@@ -78,9 +78,11 @@
             const [cols, setCols] = useState(6);
             
             const [seatLayout, setSeatLayout] = useState([]);
-            const [studentInput, setStudentInput] = useState("김철수(남), 이영희(여), 박민수(남), 최지윤(여), 홍길동(남), 김태희(여)");
             
-            // 💡 새 기능: 피하고 싶은 짝꿍 상태 추가
+            // 💡 새 기능: 남/여 명단 입력칸 분리
+            const [maleInput, setMaleInput] = useState("김철수, 박민수, 홍길동");
+            const [femaleInput, setFemaleInput] = useState("이영희, 최지윤, 김태희");
+            
             const [avoidPairsInput, setAvoidPairsInput] = useState(""); 
             
             const [students, setStudents] = useState([]);
@@ -109,23 +111,21 @@
             }, [rows, cols]);
 
             // --- 이름 및 성별 파싱 ---
-            const parseStudents = useCallback((inputText) => {
-                const list = inputText.split(/[\n,]+/).map(s => s.trim()).filter(s => s !== "");
+            const parseStudents = useCallback((males, females) => {
+                const maleList = males.split(/[\n,]+/).map(s => s.trim()).filter(s => s !== "");
+                const femaleList = females.split(/[\n,]+/).map(s => s.trim()).filter(s => s !== "");
+                
                 const parsedStudents = [];
                 const parsedGenders = {};
 
-                list.forEach(item => {
-                    let gender = 'U';
-                    let name = item;
-                    if (item.includes('(남)')) {
-                        gender = 'M';
-                        name = item.replace('(남)', '').trim();
-                    } else if (item.includes('(여)')) {
-                        gender = 'F';
-                        name = item.replace('(여)', '').trim();
-                    }
+                maleList.forEach(name => {
                     parsedStudents.push(name);
-                    parsedGenders[name] = gender;
+                    parsedGenders[name] = 'M';
+                });
+
+                femaleList.forEach(name => {
+                    parsedStudents.push(name);
+                    parsedGenders[name] = 'F';
                 });
 
                 setStudents(parsedStudents);
@@ -133,8 +133,8 @@
             }, []);
 
             useEffect(() => {
-                parseStudents(studentInput);
-            }, [studentInput, parseStudents]);
+                parseStudents(maleInput, femaleInput);
+            }, [maleInput, femaleInput, parseStudents]);
 
             const getColorStyle = useCallback((name) => {
                 if (!name) return "bg-gray-100 border-gray-300 text-gray-500";
@@ -205,7 +205,6 @@
                 const availableStudents = students.filter(s => !fixedNamesList.includes(s));
                 let boys = availableStudents.filter(s => studentGenders[s] === 'M').sort(() => Math.random() - 0.5);
                 let girls = availableStudents.filter(s => studentGenders[s] === 'F').sort(() => Math.random() - 0.5);
-                let unknowns = availableStudents.filter(s => studentGenders[s] === 'U').sort(() => Math.random() - 0.5);
 
                 const remainingSeats = activeSeats.filter(idx => !assignmentMap[idx]);
 
@@ -215,18 +214,14 @@
                     const reqGender = seatGenderConstraints[idx];
                     if (reqGender === 'M' && boys.length > 0) {
                         assignmentMap[idx] = boys.pop();
-                    } else if (reqGender === 'M' && unknowns.length > 0) {
-                         assignmentMap[idx] = unknowns.pop(); 
                     } else if (reqGender === 'F' && girls.length > 0) {
                         assignmentMap[idx] = girls.pop();
-                    } else if (reqGender === 'F' && unknowns.length > 0) {
-                         assignmentMap[idx] = unknowns.pop();
                     } else {
                         unassignedSeats.push(idx); 
                     }
                 });
 
-                // 💡 4. 피하고 싶은 짝꿍 목록 파싱
+                // 4. 피하고 싶은 짝꿍 목록 파싱
                 const avoidSet = new Set();
                 avoidPairsInput.split('\n').forEach(line => {
                     const parts = line.split(',').map(s => s.trim()).filter(s => s);
@@ -249,7 +244,6 @@
                             }
                         }
                     }
-                    // 모든 경우의 수가 피해야 하는 조합일 경우 어쩔 수 없이 배정
                     if (pool.length >= 2) {
                         return [pool.pop(), pool.pop()];
                     }
@@ -302,7 +296,7 @@
                 });
                 singleSlots.sort(() => Math.random() - 0.5);
 
-                const leftovers = [...boys, ...girls, ...unknowns].sort(() => Math.random() - 0.5);
+                const leftovers = [...boys, ...girls].sort(() => Math.random() - 0.5);
 
                 leftovers.forEach(student => {
                     if (singleSlots.length > 0) {
@@ -397,7 +391,7 @@
                         } else {
                             if (!isActive) return <div key={idx} className="aspect-square bg-transparent" />;
                             
-                            const cleanName = displayValue ? displayValue.replace('(남)', '').replace('(여)', '') : "";
+                            const cleanName = displayValue || "";
                             const isBoy = displayValue && studentGenders[displayValue] === 'M';
                             const isGirl = displayValue && studentGenders[displayValue] === 'F';
                             
@@ -426,6 +420,9 @@
             );
 
             if (step === 'teacher_setup') {
+                const maleCount = students.filter(s => studentGenders[s] === 'M').length;
+                const femaleCount = students.filter(s => studentGenders[s] === 'F').length;
+
                 return (
                     <div className="min-h-screen bg-slate-50 p-4 md:p-8 font-sans border-t-8 border-violet-500">
                         <header className="max-w-6xl mx-auto mb-6 flex justify-between items-center bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
@@ -490,20 +487,35 @@
 
                             {/* 우측: 학생 설정 */}
                             <div className="lg:col-span-5 space-y-6">
+                                {/* 💡 변경된 남/여 분리 입력란 */}
                                 <Card className="bg-white border-slate-200">
                                     <h2 className="text-lg font-bold mb-4 text-slate-700 flex items-center gap-2">
                                         <Users size={20} className="text-violet-400" /> 2. 학생 명단
                                     </h2>
                                     <div className="bg-blue-50 border border-blue-200 p-3 rounded-xl mb-4 text-sm text-blue-800">
-                                        이름 뒤에 <strong>(남)</strong> 또는 <strong>(여)</strong>를 붙여주세요. 타일에 성별을 지정하지 않은 빈자리는 알아서 동성끼리 짝을 짓습니다.
+                                        이름에 (남), (여)를 붙일 필요 없이 <strong>각각의 칸에 이름만 쉼표나 줄바꿈으로 구분</strong>해서 적어주세요.
                                     </div>
-                                    <textarea
-                                        value={studentInput}
-                                        onChange={(e) => setStudentInput(e.target.value)}
-                                        className="w-full h-24 p-4 border-2 border-slate-200 rounded-xl focus:border-violet-400 outline-none text-sm resize-none"
-                                    />
-                                    <div className="mt-2 text-right text-xs text-slate-500 font-bold">
-                                        총 {students.length}명 인식됨
+                                    
+                                    <div className="flex flex-col sm:flex-row gap-4">
+                                        <div className="flex-1">
+                                            <label className="block text-sm font-bold text-blue-600 mb-2">👦 남학생</label>
+                                            <textarea
+                                                value={maleInput}
+                                                onChange={(e) => setMaleInput(e.target.value)}
+                                                className="w-full h-28 p-3 border-2 border-blue-200 rounded-xl focus:border-blue-400 outline-none text-sm resize-none"
+                                            />
+                                        </div>
+                                        <div className="flex-1">
+                                            <label className="block text-sm font-bold text-pink-600 mb-2">👧 여학생</label>
+                                            <textarea
+                                                value={femaleInput}
+                                                onChange={(e) => setFemaleInput(e.target.value)}
+                                                className="w-full h-28 p-3 border-2 border-pink-200 rounded-xl focus:border-pink-400 outline-none text-sm resize-none"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="mt-3 text-right text-sm text-slate-600 font-bold bg-slate-100 p-2 rounded-lg">
+                                        총 {students.length}명 <span className="text-slate-400 font-normal">(남: {maleCount}명, 여: {femaleCount}명)</span>
                                     </div>
                                 </Card>
 
@@ -527,7 +539,7 @@
                                     </div>
                                 </Card>
 
-                                {/* 💡 새로 추가된 피하고 싶은 짝꿍 설정 */}
+                                {/* 짝꿍 분리 설정 */}
                                 <Card className="bg-white border-slate-200">
                                     <h2 className="text-lg font-bold mb-4 text-slate-700 flex items-center gap-2">
                                         <Shield size={20} className="text-rose-500" /> 4. 짝꿍 분리 설정
