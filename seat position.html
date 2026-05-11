@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>우리 반 시크릿 자리 배치</title>
+    
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
+    
+    <style>
+        body { 
+            font-family: 'Jua', sans-serif; 
+            background-color: #f8fafc;
+        }
+        @keyframes blob {
+            0% { transform: translate(0px, 0px) scale(1); }
+            33% { transform: translate(30px, -50px) scale(1.1); }
+            66% { transform: translate(-20px, 20px) scale(0.9); }
+            100% { transform: translate(0px, 0px) scale(1); }
+        }
+        .animate-blob { animation: blob 7s infinite; }
+        .animation-delay-2000 { animation-delay: 2s; }
+        .animation-delay-4000 { animation-delay: 4s; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useCallback } = React;
+
+        // --- Icons ---
+        const IconBase = ({ children, size = 24, className = "" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>{children}</svg>
+        );
+        const Settings = (props) => <IconBase {...props}><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.47a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></IconBase>;
+        const Users = (props) => <IconBase {...props}><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></IconBase>;
+        const LayoutIcon = (props) => <IconBase {...props}><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></IconBase>;
+        const Play = (props) => <IconBase {...props}><polygon points="5 3 19 12 5 21 5 3"/></IconBase>;
+        const ArrowRight = (props) => <IconBase {...props}><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></IconBase>;
+        const Target = (props) => <IconBase {...props}><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></IconBase>;
+        const MousePointer = (props) => <IconBase {...props}><path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/><path d="M13 13l6 6"/></IconBase>;
+
+        // --- UI Components ---
+        const Card = ({ children, className = "" }) => (
+            <div className={`bg-white/90 backdrop-blur-sm rounded-3xl shadow-xl border-4 border-white/50 p-6 ${className}`}>
+                {children}
+            </div>
+        );
+
+        const Button = ({ onClick, children, variant = "primary", className = "", disabled = false }) => {
+            const baseStyle = "px-6 py-3 rounded-full font-extrabold transition-all duration-300 flex items-center justify-center gap-2 transform hover:-translate-y-1 hover:shadow-lg active:translate-y-0 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed";
+            const variants = {
+                primary: "bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white",
+                secondary: "bg-white text-violet-600 border-2 border-violet-100",
+                dark: "bg-slate-700 text-white hover:bg-slate-800",
+                blue: "bg-blue-500 text-white hover:bg-blue-600",
+                pink: "bg-pink-500 text-white hover:bg-pink-600",
+                outline: "bg-white border-2 border-slate-200 text-slate-600 hover:bg-slate-50"
+            };
+            return (
+                <button onClick={onClick} className={`${baseStyle} ${variants[variant]} ${className}`} disabled={disabled}>
+                {children}
+                </button>
+            );
+        };
+
+        const SeatArrangementApp = () => {
+            const [step, setStep] = useState('teacher_setup'); 
+            const [rows, setRows] = useState(5);
+            const [cols, setCols] = useState(6); // 자유롭게 조절 가능하도록 원복
+            
+            const [seatLayout, setSeatLayout] = useState([]);
+            const [studentInput, setStudentInput] = useState("김철수(남), 이영희(여), 박민수(남), 최지윤(여), 홍길동(남), 김태희(여)");
+            
+            const [students, setStudents] = useState([]);
+            const [studentGenders, setStudentGenders] = useState({}); 
+            
+            const [fixedAssignments, setFixedAssignments] = useState({});
+            const [seatGenderConstraints, setSeatGenderConstraints] = useState({}); // { index: 'M' | 'F' }
+            
+            // 'toggle' | 'M' | 'F' | 'clear_gender' | 'fix'
+            const [clickMode, setClickMode] = useState('toggle');
+            const [fixSeatName, setFixSeatName] = useState("");
+
+            const [finalAssignment, setFinalAssignment] = useState({});
+            const [displayNames, setDisplayNames] = useState({}); 
+            const [isAnimating, setIsAnimating] = useState(false);
+
+            // --- 초기 그리드 생성 ---
+            useEffect(() => {
+                const newSize = rows * cols;
+                setSeatLayout(prev => {
+                    const newLayout = Array(newSize).fill(true);
+                    for (let i = 0; i < Math.min(prev.length, newSize); i++) {
+                        newLayout[i] = prev[i];
+                    }
+                    return newLayout;
+                });
+            }, [rows, cols]);
+
+            // --- 이름 및 성별 파싱 ---
+            const parseStudents = useCallback((inputText) => {
+                const list = inputText.split(/[\n,]+/).map(s => s.trim()).filter(s => s !== "");
+                const parsedStudents = [];
+                const parsedGenders = {};
+
+                list.forEach(item => {
+                    let gender = 'U';
+                    let name = item;
+                    if (item.includes('(남)')) {
+                        gender = 'M';
+                        name = item.replace('(남)', '').trim();
+                    } else if (item.includes('(여)')) {
+                        gender = 'F';
+                        name = item.replace('(여)', '').trim();
+                    }
+                    parsedStudents.push(name);
+                    parsedGenders[name] = gender;
+                });
+
+                setStudents(parsedStudents);
+                setStudentGenders(parsedGenders);
+            }, []);
+
+            useEffect(() => {
+                parseStudents(studentInput);
+            }, [studentInput, parseStudents]);
+
+            const getColorStyle = useCallback((name) => {
+                if (!name) return "bg-gray-100 border-gray-300 text-gray-500";
+                const colors = ["bg-emerald-100 text-emerald-600", "bg-purple-100 text-purple-600", "bg-orange-100 text-orange-600"];
+                let hash = 0;
+                for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+                return colors[Math.abs(hash) % colors.length];
+            }, []);
+
+            const handleGridClick = (index) => {
+                if (clickMode === 'toggle') {
+                    const newLayout = [...seatLayout];
+                    newLayout[index] = !newLayout[index];
+                    setSeatLayout(newLayout);
+                    
+                    // 비활성화 시 설정 초기화
+                    if (newLayout[index] === false) {
+                        const newFixed = { ...fixedAssignments };
+                        delete newFixed[index];
+                        setFixedAssignments(newFixed);
+                        
+                        const newConstraints = { ...seatGenderConstraints };
+                        delete newConstraints[index];
+                        setSeatGenderConstraints(newConstraints);
+                    }
+                } else if (clickMode === 'fix') {
+                    if (!seatLayout[index]) return;
+                    if (!fixSeatName.trim()) {
+                        alert("고정할 학생 이름을 입력해주세요.");
+                        return;
+                    }
+                    const newFixed = { ...fixedAssignments };
+                    if (newFixed[index] === fixSeatName.trim()) delete newFixed[index];
+                    else newFixed[index] = fixSeatName.trim();
+                    setFixedAssignments(newFixed);
+                } else if (clickMode === 'M') {
+                    if (!seatLayout[index]) return;
+                    setSeatGenderConstraints(prev => ({...prev, [index]: prev[index] === 'M' ? null : 'M'}));
+                } else if (clickMode === 'F') {
+                    if (!seatLayout[index]) return;
+                    setSeatGenderConstraints(prev => ({...prev, [index]: prev[index] === 'F' ? null : 'F'}));
+                } else if (clickMode === 'clear_gender') {
+                    if (!seatLayout[index]) return;
+                    const newConstraints = { ...seatGenderConstraints };
+                    delete newConstraints[index];
+                    setSeatGenderConstraints(newConstraints);
+                }
+            };
+
+            // --- 스마트 배치 알고리즘 ---
+            const calculateSeating = () => {
+                const activeSeats = seatLayout.map((isActive, idx) => isActive ? idx : -1).filter(idx => idx !== -1);
+                
+                if (students.length > activeSeats.length) {
+                    alert(`학생 수(${students.length}명)가 좌석 수(${activeSeats.length}석)보다 많습니다!`);
+                    return;
+                }
+
+                const assignmentMap = {};
+                const fixedNamesList = [];
+                
+                // 1. 고정석 배치
+                Object.entries(fixedAssignments).forEach(([idx, name]) => {
+                    assignmentMap[idx] = name;
+                    fixedNamesList.push(name);
+                });
+
+                // 2. 남은 학생 분류
+                const availableStudents = students.filter(s => !fixedNamesList.includes(s));
+                let boys = availableStudents.filter(s => studentGenders[s] === 'M').sort(() => Math.random() - 0.5);
+                let girls = availableStudents.filter(s => studentGenders[s] === 'F').sort(() => Math.random() - 0.5);
+                let unknowns = availableStudents.filter(s => studentGenders[s] === 'U').sort(() => Math.random() - 0.5);
+
+                const remainingSeats = activeSeats.filter(idx => !assignmentMap[idx]);
+
+                // 3. 성별 지정석(타일 설정) 채우기
+                const unassignedSeats = [];
+                remainingSeats.forEach(idx => {
+                    const reqGender = seatGenderConstraints[idx];
+                    if (reqGender === 'M' && boys.length > 0) {
+                        assignmentMap[idx] = boys.pop();
+                    } else if (reqGender === 'M' && unknowns.length > 0) {
+                         assignmentMap[idx] = unknowns.pop(); // 남학생 부족시 미지정 학생 투입
+                    } else if (reqGender === 'F' && girls.length > 0) {
+                        assignmentMap[idx] = girls.pop();
+                    } else if (reqGender === 'F' && unknowns.length > 0) {
+                         assignmentMap[idx] = unknowns.pop();
+                    } else {
+                        unassignedSeats.push(idx); // 지정 없거나 해당 성별 학생이 부족한 경우
+                    }
+                });
+
+                // 4. 남은 자리 동성 짝꿍 알고리즘 (이전과 동일)
+                let pairSlots = [];
+                let singleSlots = [];
+                const isProcessed = new Set();
+
+                unassignedSeats.forEach(idx => {
+                    if (isProcessed.has(idx)) return;
+                    // 같은 행(줄)에 있고 바로 옆자리인지 확인
+                    const isSameRow = Math.floor(idx / cols) === Math.floor((idx + 1) / cols);
+                    if (idx % 2 === 0 && isSameRow && unassignedSeats.includes(idx + 1)) {
+                        pairSlots.push([idx, idx + 1]);
+                        isProcessed.add(idx);
+                        isProcessed.add(idx + 1);
+                    } else {
+                        singleSlots.push(idx);
+                    }
+                });
+
+                pairSlots.sort(() => Math.random() - 0.5);
+
+                while (boys.length >= 2 && pairSlots.length > 0) {
+                    const pair = pairSlots.pop();
+                    assignmentMap[pair[0]] = boys.pop();
+                    assignmentMap[pair[1]] = boys.pop();
+                }
+                while (girls.length >= 2 && pairSlots.length > 0) {
+                    const pair = pairSlots.pop();
+                    assignmentMap[pair[0]] = girls.pop();
+                    assignmentMap[pair[1]] = girls.pop();
+                }
+
+                pairSlots.forEach(pair => {
+                    singleSlots.push(pair[0]);
+                    singleSlots.push(pair[1]);
+                });
+                singleSlots.sort(() => Math.random() - 0.5);
+
+                const leftovers = [...boys, ...girls, ...unknowns].sort(() => Math.random() - 0.5);
+
+                leftovers.forEach(student => {
+                    if (singleSlots.length > 0) {
+                        const seat = singleSlots.pop();
+                        assignmentMap[seat] = student;
+                    }
+                });
+
+                setFinalAssignment(assignmentMap);
+                setStep('shuffling');
+                runAnimation(assignmentMap, students);
+            };
+
+            const runAnimation = (targetAssignment, allStudents) => {
+                setIsAnimating(true);
+                let count = 0;
+                const maxCount = 20;
+                const interval = setInterval(() => {
+                    count++;
+                    const randomDisplay = {};
+                    seatLayout.forEach((isActive, idx) => {
+                        if (isActive) randomDisplay[idx] = allStudents[Math.floor(Math.random() * allStudents.length)];
+                    });
+                    setDisplayNames(randomDisplay);
+
+                    if (count >= maxCount) {
+                        clearInterval(interval);
+                        setDisplayNames(targetAssignment);
+                        setIsAnimating(false);
+                        setStep('result');
+                    }
+                }, 100);
+            };
+
+            // --- 그리드 렌더링 ---
+            const renderGridPreview = (mode) => (
+                <div 
+                    className="grid gap-3 mx-auto transition-all duration-500"
+                    style={{ 
+                        gridTemplateColumns: `repeat(${cols}, minmax(50px, 1fr))`,
+                        maxWidth: '900px'
+                    }}
+                >
+                    {seatLayout.map((isActive, idx) => {
+                        const displayValue = mode === 'result' || mode === 'shuffling' ? displayNames[idx] : null;
+                        const fixedName = fixedAssignments[idx];
+                        const reqGender = seatGenderConstraints[idx];
+
+                        if (mode === 'teacher_setup') {
+                            let cellContent = "X";
+                            let cellClass = "bg-slate-100 border-slate-200 text-slate-300 hover:bg-slate-200"; 
+                            
+                            if (isActive) {
+                                if (fixedName) {
+                                    const colorClass = getColorStyle(fixedName);
+                                    cellClass = `${colorClass} font-extrabold shadow-sm border-2`;
+                                    cellContent = (
+                                        <div className="flex flex-col items-center">
+                                            <span className="text-[10px] opacity-70">고정</span>
+                                            <span>{fixedName}</span>
+                                        </div>
+                                    );
+                                } else if (reqGender === 'M') {
+                                    cellClass = "bg-blue-100 border-blue-400 text-blue-600 font-bold border-2 hover:bg-blue-200";
+                                    cellContent = "남";
+                                } else if (reqGender === 'F') {
+                                    cellClass = "bg-pink-100 border-pink-400 text-pink-600 font-bold border-2 hover:bg-pink-200";
+                                    cellContent = "여";
+                                } else {
+                                     cellClass = "bg-violet-100 border-violet-300 text-violet-500 hover:bg-violet-200";
+                                     cellContent = <div className="w-3 h-3 bg-violet-400 rounded-full" />;
+                                }
+                            }
+
+                            // 모드에 따른 호버 효과 스타일링
+                            let hoverClass = "";
+                            if (isActive && !fixedName) {
+                                if (clickMode === 'fix') hoverClass = "hover:bg-emerald-100 hover:border-emerald-400 cursor-crosshair";
+                                else if (clickMode === 'M') hoverClass = "hover:bg-blue-200 hover:border-blue-400 cursor-pointer";
+                                else if (clickMode === 'F') hoverClass = "hover:bg-pink-200 hover:border-pink-400 cursor-pointer";
+                                else if (clickMode === 'clear_gender') hoverClass = "hover:bg-gray-200 hover:border-gray-400 cursor-pointer";
+                                else hoverClass = "cursor-pointer";
+                            }
+
+                            return (
+                                <div key={idx} onClick={() => handleGridClick(idx)}
+                                    className={`aspect-square rounded-xl flex items-center justify-center border-2 transition-all text-xs sm:text-sm font-bold ${cellClass} ${hoverClass}`}
+                                >
+                                    {cellContent}
+                                </div>
+                            );
+
+                        } else {
+                            if (!isActive) return <div key={idx} className="aspect-square bg-transparent" />;
+                            
+                            const cleanName = displayValue ? displayValue.replace('(남)', '').replace('(여)', '') : "";
+                            const isBoy = displayValue && studentGenders[displayValue] === 'M';
+                            const isGirl = displayValue && studentGenders[displayValue] === 'F';
+                            
+                            let genderStyle = "border-indigo-100 text-slate-800"; 
+                            if (mode === 'result' && displayValue) {
+                                if (isBoy) genderStyle = "border-blue-200 bg-blue-50 text-blue-800";
+                                if (isGirl) genderStyle = "border-pink-200 bg-pink-50 text-pink-800";
+                            }
+
+                            return (
+                                <div key={idx}
+                                    className={`
+                                        aspect-video sm:aspect-square rounded-xl flex items-center justify-center p-0 text-center font-extrabold text-2xl sm:text-3xl shadow-md border-2 
+                                        transition-all duration-300 transform 
+                                        ${displayValue ? `bg-white ${genderStyle}` : 'bg-white/40 text-transparent border-transparent scale-95'}
+                                        ${isAnimating ? 'animate-pulse scale-90' : 'hover:scale-105'}
+                                        ${displayValue ? 'scale-100' : ''}
+                                    `}
+                                >
+                                    <span className="break-keep leading-tight drop-shadow-sm">{cleanName}</span>
+                                </div>
+                            );
+                        }
+                    })}
+                </div>
+            );
+
+            if (step === 'teacher_setup') {
+                return (
+                    <div className="min-h-screen bg-slate-50 p-4 md:p-8 font-sans border-t-8 border-violet-500">
+                        <header className="max-w-6xl mx-auto mb-6 flex justify-between items-center bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+                            <div>
+                                <h1 className="text-2xl font-extrabold text-slate-800 flex items-center gap-2">
+                                    <Settings className="text-violet-500" /> 선생님 전용 설정 
+                                </h1>
+                                <p className="text-slate-500 text-sm mt-1">타일 직접 클릭하여 성별/고정석 지정 가능 🛠️</p>
+                            </div>
+                            <Button onClick={() => setStep('public_standby')} variant="primary">
+                                준비 완료 (학생 화면으로) <ArrowRight size={18} />
+                            </Button>
+                        </header>
+
+                        <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6">
+                            {/* 좌측: 책상 배치 */}
+                            <div className="lg:col-span-7 space-y-6">
+                                <Card className="h-full bg-white border-slate-200">
+                                    <h2 className="text-lg font-bold text-slate-700 flex items-center gap-2 mb-4">
+                                        <LayoutIcon size={20} className="text-violet-400" /> 1. 자리 배치 및 타일 설정
+                                    </h2>
+
+                                    {/* 그리드 조절 */}
+                                    <div className="flex gap-4 mb-4 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                                        <div className="flex-1">
+                                            <label className="text-xs font-bold text-slate-500 mb-1 block">가로 (열)</label>
+                                            <input type="number" min="1" max="12" value={cols} onChange={(e) => setCols(parseInt(e.target.value) || 1)} className="w-full p-2 border-2 border-slate-200 rounded-lg outline-none" />
+                                        </div>
+                                        <div className="flex-1">
+                                            <label className="text-xs font-bold text-slate-500 mb-1 block">세로 (행)</label>
+                                            <input type="number" min="1" max="10" value={rows} onChange={(e) => setRows(parseInt(e.target.value) || 1)} className="w-full p-2 border-2 border-slate-200 rounded-lg outline-none" />
+                                        </div>
+                                    </div>
+
+                                    {/* 클릭 툴바 */}
+                                    <div className="mb-4">
+                                        <label className="text-xs font-bold text-slate-500 mb-2 block">🖱️ 타일 클릭 기능 선택 (선택 후 아래 타일을 클릭하세요)</label>
+                                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                            <button onClick={() => setClickMode('toggle')} className={`px-2 py-2 rounded-lg text-sm font-bold border-2 transition-all ${clickMode === 'toggle' ? 'bg-violet-500 text-white border-violet-500' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>
+                                                자리 켜기/끄기
+                                            </button>
+                                            <button onClick={() => setClickMode('M')} className={`px-2 py-2 rounded-lg text-sm font-bold border-2 transition-all ${clickMode === 'M' ? 'bg-blue-500 text-white border-blue-500' : 'bg-white text-blue-600 border-blue-200 hover:bg-blue-50'}`}>
+                                                남학생 전용
+                                            </button>
+                                            <button onClick={() => setClickMode('F')} className={`px-2 py-2 rounded-lg text-sm font-bold border-2 transition-all ${clickMode === 'F' ? 'bg-pink-500 text-white border-pink-500' : 'bg-white text-pink-600 border-pink-200 hover:bg-pink-50'}`}>
+                                                여학생 전용
+                                            </button>
+                                            <button onClick={() => setClickMode('clear_gender')} className={`px-2 py-2 rounded-lg text-sm font-bold border-2 transition-all ${clickMode === 'clear_gender' ? 'bg-slate-600 text-white border-slate-600' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>
+                                                성별 지정 해제
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div className="bg-slate-50 p-4 rounded-2xl border-2 border-dashed border-slate-200 mb-2 overflow-auto max-h-[500px]">
+                                        <div className="w-full flex justify-center mb-6">
+                                            <div className="bg-slate-800 text-white px-12 py-2 rounded-lg text-sm font-bold w-full max-w-[300px] text-center border-4 border-slate-600">칠 판</div>
+                                        </div>
+                                        {renderGridPreview('teacher_setup')}
+                                    </div>
+                                </Card>
+                            </div>
+
+                            {/* 우측: 학생 설정 */}
+                            <div className="lg:col-span-5 space-y-6">
+                                <Card className="bg-white border-slate-200">
+                                    <h2 className="text-lg font-bold mb-4 text-slate-700 flex items-center gap-2">
+                                        <Users size={20} className="text-violet-400" /> 2. 학생 명단
+                                    </h2>
+                                    <div className="bg-blue-50 border border-blue-200 p-3 rounded-xl mb-4 text-sm text-blue-800">
+                                        이름 뒤에 <strong>(남)</strong> 또는 <strong>(여)</strong>를 붙여주세요. 타일에 성별을 지정하지 않은 빈자리는 알아서 동성끼리 짝을 짓습니다.
+                                    </div>
+                                    <textarea
+                                        value={studentInput}
+                                        onChange={(e) => setStudentInput(e.target.value)}
+                                        className="w-full h-32 p-4 border-2 border-slate-200 rounded-xl focus:border-violet-400 outline-none text-sm resize-none"
+                                    />
+                                    <div className="mt-2 text-right text-xs text-slate-500 font-bold">
+                                        총 {students.length}명 인식됨
+                                    </div>
+                                </Card>
+
+                                {/* 고정석 설정 */}
+                                <Card className={`bg-white transition-colors duration-300 ${clickMode === 'fix' ? 'border-emerald-300 ring-4 ring-emerald-50' : 'border-slate-200'}`}>
+                                    <h2 className="text-lg font-bold mb-4 text-slate-700 flex items-center gap-2">
+                                        <Target size={20} className={clickMode === 'fix' ? "text-emerald-500" : "text-rose-400"} /> 3. 특정 학생 자리 고정
+                                    </h2>
+                                    <p className="text-xs text-slate-500 mb-3">고정할 학생 이름을 입력하고 [자리 클릭 모드]를 켠 뒤 왼쪽 타일을 클릭하세요.</p>
+                                    <div className="flex gap-2 mb-2">
+                                        <input
+                                            type="text"
+                                            value={fixSeatName}
+                                            onChange={(e) => setFixSeatName(e.target.value)}
+                                            placeholder="학생 이름"
+                                            className="flex-1 p-2 border-2 border-slate-200 rounded-xl outline-none"
+                                        />
+                                        <Button onClick={() => setClickMode(clickMode === 'fix' ? 'toggle' : 'fix')} variant={clickMode === 'fix' ? "dark" : "outline"} className="text-sm px-4">
+                                            {clickMode === 'fix' ? "고정 모드 끄기" : "자리 클릭 모드 켜기"}
+                                        </Button>
+                                    </div>
+                                </Card>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="min-h-screen bg-slate-800 p-4 flex flex-col items-center justify-center overflow-hidden relative">
+                    <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0 opacity-40">
+                        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-purple-500 rounded-full mix-blend-multiply filter blur-3xl opacity-50 animate-blob"></div>
+                        <div className="absolute top-1/3 right-1/4 w-96 h-96 bg-blue-500 rounded-full mix-blend-multiply filter blur-3xl opacity-50 animate-blob animation-delay-2000"></div>
+                        <div className="absolute bottom-1/4 left-1/2 w-96 h-96 bg-pink-500 rounded-full mix-blend-multiply filter blur-3xl opacity-50 animate-blob animation-delay-4000"></div>
+                    </div>
+
+                    <div className="z-10 w-full max-w-5xl flex flex-col items-center">
+                        <div className="w-full flex justify-between items-center mb-8 px-4">
+                            <button onClick={() => setStep('teacher_setup')} className="text-white/50 hover:text-white transition-colors">
+                                <Settings size={24} />
+                            </button>
+                            <h1 className="text-4xl md:text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-purple-200 to-pink-200 tracking-wider">
+                                🎲 이달의 자리 배치 🎲
+                            </h1>
+                            <div className="w-6"></div>
+                        </div>
+
+                        <div className="w-full flex justify-center mb-8">
+                            <div className="bg-slate-700 text-slate-300 px-24 py-4 rounded-2xl text-xl font-bold border-b-8 border-slate-900 shadow-xl">
+                                칠 판 (앞)
+                            </div>
+                        </div>
+
+                        <div className="w-full mb-12">
+                            {renderGridPreview(step)}
+                        </div>
+
+                        {step === 'public_standby' && (
+                            <Button onClick={calculateSeating} variant="primary" className="text-xl px-12 py-5 shadow-2xl animate-bounce">
+                                <Play size={24} fill="currentColor" /> 자리 뽑기 시작!
+                            </Button>
+                        )}
+
+                        {step === 'result' && (
+                            <Button onClick={() => setStep('public_standby')} variant="secondary" className="text-lg px-8 shadow-xl mt-4">
+                                다시 뽑기
+                            </Button>
+                        )}
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<SeatArrangementApp />);
+    </script>
+</body>
+</html>
