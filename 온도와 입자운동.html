@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>온도와 입자운동 탐구</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f4f1ec;
+  --white: #ffffff;
+  --ink: #1c1a17;
+  --ink2: #5a5650;
+  --ink3: #9a948c;
+  --border: #e0dbd2;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  font-family: 'Noto Sans KR', sans-serif;
+  color: var(--ink);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 헤더 */
+header {
+  background: var(--ink);
+  color: #fff;
+  padding: 16px 28px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.header-title { font-size: 1.1rem; font-weight: 900; letter-spacing: -0.3px; }
+.header-sub { font-size: 0.75rem; color: #999; margin-top: 3px; }
+.header-badge {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 12px;
+  border-radius: 99px;
+  background: rgba(255,255,255,0.1);
+  color: #ccc;
+  white-space: nowrap;
+}
+
+/* 메인 레이아웃 */
+main {
+  flex: 1;
+  max-width: 900px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 24px 20px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* 안내 박스 */
+.guide-box {
+  background: #fffdf5;
+  border: 1px solid #edd97a;
+  border-radius: 12px;
+  padding: 14px 18px;
+  font-size: 13.5px;
+  line-height: 1.75;
+  color: #5a4a00;
+}
+.guide-box strong { color: var(--ink); font-weight: 700; }
+
+/* 시뮬레이터 카드 */
+.sim-card {
+  background: var(--white);
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+.sim-card-body {
+  padding: 20px;
+  display: grid;
+  grid-template-columns: 1fr 240px;
+  gap: 16px;
+  align-items: start;
+}
+@media (max-width: 640px) {
+  .sim-card-body { grid-template-columns: 1fr; }
+}
+
+/* 캔버스 */
+canvas {
+  display: block;
+  width: 100%;
+  height: 280px;
+  border-radius: 10px;
+  background: #17140f;
+}
+
+/* 오른쪽 패널 */
+.side-panel { display: flex; flex-direction: column; gap: 12px; }
+
+/* 온도 조절 */
+.temp-box {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+}
+.temp-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 10px;
+}
+.temp-label { font-size: 11px; font-weight: 700; color: var(--ink2); letter-spacing: 1px; text-transform: uppercase; }
+.temp-num {
+  font-family: 'DM Mono', monospace;
+  font-size: 2.2rem;
+  font-weight: 500;
+  line-height: 1;
+  transition: color .25s;
+}
+input[type=range] {
+  width: 100%;
+  cursor: pointer;
+  margin: 4px 0;
+  appearance: none;
+  height: 5px;
+  border-radius: 3px;
+  background: linear-gradient(to right, #60a5fa, #fbbf24, #f87171);
+  outline: none;
+}
+input[type=range]::-webkit-slider-thumb {
+  appearance: none;
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  background: var(--ink);
+  border: 3px solid #fff;
+  box-shadow: 0 1px 5px rgba(0,0,0,0.25);
+  cursor: pointer;
+}
+.range-ends {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--ink3);
+  margin-top: 2px;
+}
+
+/* 관찰 패널 */
+.obs-box {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px;
+}
+.obs-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink2);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+.obs-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+.obs-row:last-child { border-bottom: none; }
+.obs-key { color: var(--ink2); }
+.obs-val {
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 3px 10px;
+  border-radius: 99px;
+  background: var(--border);
+  color: var(--ink);
+  transition: background .3s, color .3s;
+  white-space: nowrap;
+}
+
+/* 탐구 질문 */
+.question-card {
+  background: var(--white);
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  padding: 20px 24px;
+}
+.q-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink3);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  margin-bottom: 14px;
+}
+.q-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.q-item {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--ink2);
+}
+.q-num {
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  background: var(--bg);
+  border: 1.5px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink);
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="header-title">온도와 입자운동 탐구</div>
+    <div class="header-sub">중학교 1학년 과학</div>
+  </div>
+  <div class="header-badge">슬라이더를 움직여 관찰하세요</div>
+</header>
+
+<main>
+
+  <div class="guide-box">
+    💡 아래 슬라이더로 <strong>온도를 바꿔보세요.</strong> 온도가 달라지면 입자들이 어떻게 달라지는지 잘 관찰하고, 학습지에 기록해 보세요.
+  </div>
+
+  <div class="sim-card">
+    <div class="sim-card-body">
+      <canvas id="cv" height="280"></canvas>
+      <div class="side-panel">
+        <div class="temp-box">
+          <div class="temp-top">
+            <span class="temp-label">온도</span>
+            <span class="temp-num" id="tempNum">20°C</span>
+          </div>
+          <input type="range" id="sl" min="0" max="100" value="20" step="1">
+          <div class="range-ends"><span>0°C 낮음</span><span>높음 100°C</span></div>
+        </div>
+        <div class="obs-box">
+          <div class="obs-title">관찰</div>
+          <div class="obs-row">
+            <span class="obs-key">입자 속도</span>
+            <span class="obs-val" id="oSpeed">느림</span>
+          </div>
+          <div class="obs-row">
+            <span class="obs-key">움직임</span>
+            <span class="obs-val" id="oMotion">조용함</span>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="question-card">
+    <div class="q-title">탐구 질문 — 학습지에 답해보세요</div>
+    <div class="q-list">
+      <div class="q-item"><div class="q-num">1</div>온도가 높아질수록 입자의 운동은 어떻게 달라지나요?</div>
+      <div class="q-item"><div class="q-num">2</div>온도가 낮아질수록 입자의 운동은 어떻게 달라지나요?</div>
+      <div class="q-item"><div class="q-num">3</div>온도와 입자 운동의 빠르기 사이에는 어떤 관계가 있을까요?</div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+const sl = document.getElementById('sl');
+let T = 20, particles = [], animId;
+
+function resize() {
+  cv.width = cv.offsetWidth;
+  cv.height = 280;
+}
+
+function maxSpeed(t) { return 0.3 + (t / 100) * 5.2; }
+
+function ptColor(t) {
+  if (t < 34) return { fill: '#93c5fd', stroke: '#3b82f6', arrow: '#60a5fa' };
+  if (t < 67) return { fill: '#fcd34d', stroke: '#f59e0b', arrow: '#fbbf24' };
+  return { fill: '#fca5a5', stroke: '#ef4444', arrow: '#f87171' };
+}
+
+function initParticles() {
+  particles = [];
+  const W = cv.width, H = cv.height;
+  for (let i = 0; i < 30; i++) {
+    const spd = maxSpeed(T) * (0.4 + Math.random() * 1.1);
+    const a = Math.random() * Math.PI * 2;
+    particles.push({ x: 12 + Math.random()*(W-24), y: 12 + Math.random()*(H-24), vx: Math.cos(a)*spd, vy: Math.sin(a)*spd });
+  }
+}
+
+function rescale() {
+  particles.forEach(p => {
+    const cur = Math.hypot(p.vx, p.vy) || 0.01;
+    const ns = maxSpeed(T) * (0.4 + Math.random() * 1.1);
+    p.vx = p.vx/cur*ns; p.vy = p.vy/cur*ns;
+  });
+}
+
+function update() {
+  const W = cv.width, H = cv.height, R = 7;
+  particles.forEach(p => {
+    p.x += p.vx; p.y += p.vy;
+    if (p.x-R<0){p.x=R; p.vx=Math.abs(p.vx);}
+    if (p.x+R>W){p.x=W-R; p.vx=-Math.abs(p.vx);}
+    if (p.y-R<0){p.y=R; p.vy=Math.abs(p.vy);}
+    if (p.y+R>H){p.y=H-R; p.vy=-Math.abs(p.vy);}
+  });
+}
+
+function draw() {
+  const W = cv.width, H = cv.height;
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle = '#17140f';
+  ctx.beginPath(); ctx.roundRect(0,0,W,H,10); ctx.fill();
+
+  const col = ptColor(T);
+  particles.forEach(p => {
+    const spd = Math.hypot(p.vx, p.vy);
+    if (spd > 0.05) {
+      const ux = p.vx/spd, uy = p.vy/spd;
+      const len = Math.min(24, Math.max(5, spd*3));
+      const R = 7, hl = 5, hw = 3.5, nx = -uy, ny = ux;
+      const ex = p.x+ux*(R+len), ey = p.y+uy*(R+len);
+      ctx.beginPath(); ctx.moveTo(p.x+ux*R, p.y+uy*R); ctx.lineTo(ex-ux*hl, ey-uy*hl);
+      ctx.strokeStyle = col.arrow; ctx.lineWidth = 1.5; ctx.globalAlpha = 0.5; ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(ex, ey);
+      ctx.lineTo(ex-ux*hl+nx*hw, ey-uy*hl+ny*hw);
+      ctx.lineTo(ex-ux*hl-nx*hw, ey-uy*hl-ny*hw);
+      ctx.closePath(); ctx.fillStyle = col.arrow; ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+    ctx.beginPath(); ctx.arc(p.x, p.y, 7, 0, Math.PI*2);
+    ctx.fillStyle = col.fill; ctx.globalAlpha = 0.9; ctx.fill(); ctx.globalAlpha = 1;
+    ctx.strokeStyle = col.stroke; ctx.lineWidth = 1.2; ctx.stroke();
+  });
+}
+
+function updateObs(t) {
+  const col = t < 34 ? '#3b82f6' : t < 67 ? '#f59e0b' : '#ef4444';
+  document.getElementById('tempNum').textContent = t + '°C';
+  document.getElementById('tempNum').style.color = col;
+
+  let speed, motion;
+  if (t <= 20)      { speed='매우 느림'; motion='거의 정지'; }
+  else if (t <= 40) { speed='느림';     motion='조용함';    }
+  else if (t <= 60) { speed='보통';     motion='활발함';    }
+  else if (t <= 80) { speed='빠름';     motion='매우 활발'; }
+  else              { speed='매우 빠름'; motion='격렬함';    }
+
+  const speedColors = { '매우 느림':'#93c5fd','느림':'#60a5fa','보통':'#fbbf24','빠름':'#f97316','매우 빠름':'#ef4444' };
+  const sEl = document.getElementById('oSpeed');
+  sEl.textContent = speed;
+  sEl.style.background = speedColors[speed] + '28';
+  sEl.style.color = speedColors[speed];
+
+  document.getElementById('oMotion').textContent = motion;
+}
+
+sl.addEventListener('input', function() {
+  T = parseInt(this.value);
+  rescale();
+  updateObs(T);
+});
+
+function loop() { update(); draw(); animId = requestAnimationFrame(loop); }
+
+window.addEventListener('load', () => { resize(); initParticles(); updateObs(T); loop(); });
+window.addEventListener('resize', () => { resize(); });
+</script>
+</body>
+</html>
