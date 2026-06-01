@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>조천중학교 1학년 과학실험</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;600;700;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --hot: #e84a2e; --cold: #2e7be8; --eq: #20b97a;
+    --bg: #f5f2eb; --panel: #ffffff; --border: #e0dbd0;
+    --text: #1a1a1a; --sub: #666;
+    --shadow: 0 2px 16px rgba(0,0,0,0.09);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; overflow: hidden; font-family: 'Noto Sans KR', sans-serif; background: var(--bg); color: var(--text); }
+
+  /* 전체 레이아웃 */
+  .page-wrap { display: flex; flex-direction: column; height: 100vh; }
+  .main-split { display: grid; grid-template-columns: 1fr 1fr; flex: 1; overflow: hidden; }
+
+  /* 헤더 */
+  header { background: var(--text); color: #fff; padding: 14px 28px; display: flex; align-items: center; gap: 14px; flex-shrink: 0; }
+  .header-icon { font-size: 24px; }
+  header h1 { font-size: 1.1rem; font-weight: 700; }
+  header p { font-size: 0.75rem; color: #aaa; margin-top: 2px; }
+  .badge { margin-left: auto; background: var(--hot); color: #fff; font-size: 0.68rem; font-weight: 700; padding: 3px 10px; border-radius: 20px; }
+
+  /* 왼쪽 실험과정 */
+  .left-pane { background: #1a1a2e; color: #fff; display: flex; flex-direction: column; padding: 32px 36px; overflow-y: auto; position: relative; }
+  .left-pane::before { content:''; position:absolute; inset:0; background: radial-gradient(ellipse at 20% 30%, rgba(46,123,232,0.18) 0%, transparent 60%), radial-gradient(ellipse at 80% 80%, rgba(232,74,46,0.12) 0%, transparent 55%); pointer-events:none; }
+  .exp-label { font-size: 0.68rem; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: #2e7be8; margin-bottom: 8px; }
+  .exp-title { font-size: 1.5rem; font-weight: 900; line-height: 1.3; margin-bottom: 4px; }
+  .exp-subtitle { font-size: 0.8rem; color: #aaa; margin-bottom: 28px; }
+  .steps { display: flex; flex-direction: column; gap: 16px; flex: 1; }
+  .step { display: flex; gap: 16px; align-items: flex-start; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 16px 18px; transition: background 0.2s; }
+  .step:hover { background: rgba(255,255,255,0.08); }
+  .step-num { min-width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-family: 'Space Mono', monospace; font-weight: 700; font-size: 0.85rem; flex-shrink: 0; }
+  .step:nth-child(1) .step-num { background: rgba(232,74,46,0.25); color: #f08070; border: 1.5px solid rgba(232,74,46,0.4); }
+  .step:nth-child(2) .step-num { background: rgba(46,123,232,0.25); color: #7aaef0; border: 1.5px solid rgba(46,123,232,0.4); }
+  .step:nth-child(3) .step-num { background: rgba(32,185,122,0.25); color: #70d4a8; border: 1.5px solid rgba(32,185,122,0.4); }
+  .step:nth-child(4) .step-num { background: rgba(245,200,66,0.25); color: #f0d070; border: 1.5px solid rgba(245,200,66,0.4); }
+  .step-head { font-size: 0.68rem; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 4px; opacity: 0.5; }
+  .step-text { font-size: 0.88rem; line-height: 1.7; color: #ddd; }
+  .step-text strong { color: #fff; font-weight: 700; }
+
+  /* 오른쪽 앱 */
+  .right-pane { background: var(--bg); display: flex; flex-direction: column; overflow-y: auto; }
+  .container { padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+
+  /* 패널 */
+  .panel { background: var(--panel); border-radius: 14px; box-shadow: var(--shadow); overflow: hidden; }
+  .panel-header { padding: 12px 18px; font-weight: 700; font-size: 0.88rem; border-bottom: 1px solid var(--border); }
+  .panel-body { padding: 16px; }
+
+  /* 설정 */
+  .setup-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin-bottom: 14px; }
+  .field label { display: block; font-size: 0.72rem; font-weight: 600; color: var(--sub); margin-bottom: 3px; text-transform: uppercase; letter-spacing: 0.4px; }
+  .field input { width: 100%; border: 1.5px solid var(--border); border-radius: 7px; padding: 7px 9px; font-size: 0.88rem; font-family: 'Space Mono', monospace; background: var(--bg); color: var(--text); transition: border-color 0.2s; }
+  .field input:focus { outline: none; border-color: var(--eq); background: #fff; }
+  .field.hot input { border-color: #f5c0b0; }
+  .field.cold input { border-color: #b0c8f5; }
+  .field.hot input:focus { border-color: var(--hot); }
+  .field.cold input:focus { border-color: var(--cold); }
+  .tip { background: #fffbe8; border-left: 3px solid #f5c842; padding: 9px 12px; font-size: 0.76rem; color: #7a6a00; border-radius: 0 6px 6px 0; margin-bottom: 12px; line-height: 1.6; }
+
+  /* 표 */
+  .table-wrapper { overflow-x: auto; border-radius: 8px; border: 1.5px solid var(--border); margin-bottom: 12px; max-height: 220px; overflow-y: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+  thead th { background: #f0ede6; padding: 8px; font-weight: 700; font-size: 0.73rem; text-align: center; position: sticky; top: 0; }
+  thead th.hot-th { color: var(--hot); }
+  thead th.cold-th { color: var(--cold); }
+  tbody tr { border-top: 1px solid var(--border); }
+  tbody tr:hover { background: #fafaf7; }
+  .time-cell { font-family: 'Space Mono', monospace; font-size: 0.78rem; color: var(--sub); font-weight: 700; padding: 6px 8px; background: #f8f6f1; text-align: center; }
+  tbody td { padding: 3px; text-align: center; }
+  tbody td input { width: 66px; border: 1.5px solid transparent; border-radius: 5px; padding: 4px 5px; font-family: 'Space Mono', monospace; font-size: 0.82rem; text-align: center; background: transparent; color: var(--text); transition: all 0.15s; }
+  tbody td input:focus { outline: none; background: #fff; border-color: var(--eq); }
+  tbody td.hot-cell input:focus { border-color: var(--hot); }
+  tbody td.cold-cell input:focus { border-color: var(--cold); }
+
+  /* 버튼 */
+  .btn-row { display: flex; gap: 8px; }
+  .btn { flex: 1; padding: 9px 0; border: none; border-radius: 7px; font-family: 'Noto Sans KR', sans-serif; font-size: 0.83rem; font-weight: 700; cursor: pointer; transition: all 0.15s; }
+  .btn-draw { background: var(--text); color: #fff; }
+  .btn-draw:hover { background: #333; transform: translateY(-1px); }
+  .btn-clear { background: var(--border); color: var(--sub); }
+  .btn-clear:hover { background: #ddd; }
+
+  /* 그래프 */
+  .graph-placeholder { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 280px; color: #ccc; gap: 10px; }
+  .graph-placeholder .ph-icon { font-size: 40px; }
+  .graph-placeholder p { font-size: 0.82rem; text-align: center; }
+  .legend { display: flex; gap: 16px; padding: 12px 16px 8px; font-size: 0.78rem; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-weight: 600; }
+  .legend-dot { width: 12px; height: 12px; border-radius: 50%; }
+  .graph-canvas-wrap { padding: 8px 16px 12px; }
+  canvas { display: block; border-radius: 6px; }
+
+  /* 결과 박스 */
+  .result-box { margin: 0 16px 12px; background: linear-gradient(135deg,#eefaf4,#e8f5fe); border: 1.5px solid #b8e8d4; border-radius: 9px; padding: 12px 16px; display: none; }
+  .result-box.show { display: block; }
+  .result-box h3 { font-size: 0.76rem; font-weight: 700; color: var(--eq); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .result-stats { display: flex; gap: 14px; flex-wrap: wrap; }
+  .stat { font-size: 0.8rem; }
+  .stat span { font-family: 'Space Mono', monospace; font-weight: 700; font-size: 0.9rem; }
+  .stat .hot-val { color: var(--hot); }
+  .stat .cold-val { color: var(--cold); }
+
+  /* 패들렛 제출 */
+  .submit-area { margin: 0 16px 16px; background: #f8f6ff; border: 1.5px solid #d0c8f0; border-radius: 11px; padding: 14px 16px; display: none; }
+  .submit-area.show { display: block; }
+  .submit-label { font-size: 0.78rem; font-weight: 700; color: #5a4a9a; margin-bottom: 9px; }
+  .class-btns { display: flex; gap: 7px; margin-bottom: 10px; }
+  .class-btn { flex: 1; padding: 7px 0; border: 2px solid #d0c8f0; border-radius: 7px; background: #fff; color: #5a4a9a; font-family: 'Noto Sans KR', sans-serif; font-weight: 700; font-size: 0.88rem; cursor: pointer; transition: all 0.15s; }
+  .class-btn:hover { background: #ece8ff; border-color: #9080d0; }
+  .class-btn.selected { background: #5a4a9a; color: #fff; border-color: #5a4a9a; }
+  .btn-capture { width: 100%; padding: 10px 0; border: none; border-radius: 7px; background: #5a4a9a; color: #fff; font-family: 'Noto Sans KR', sans-serif; font-weight: 700; font-size: 0.88rem; cursor: pointer; transition: all 0.15s; margin-bottom: 7px; opacity: 0.4; }
+  .btn-capture:not(:disabled) { opacity: 1; }
+  .btn-capture:not(:disabled):hover { background: #4a3a8a; transform: translateY(-1px); }
+  .btn-capture:disabled { cursor: not-allowed; }
+  .capture-tip { font-size: 0.7rem; color: #999; line-height: 1.6; text-align: center; }
+
+  @media (max-width: 900px) {
+    html, body { overflow: auto; }
+    .main-split { grid-template-columns: 1fr; }
+    .left-pane { padding: 24px 20px; }
+  }
+</style>
+</head>
+<body>
+<div class="page-wrap">
+
+<header>
+  <div class="header-icon">🔥</div>
+  <div>
+    <h1>조천중학교 1학년 과학실험</h1>
+    <p>열평형 실험 — 측정값을 입력하면 자동으로 그래프가 완성돼요</p>
+  </div>
+  <div class="badge">중학교 1학년</div>
+</header>
+
+<div class="main-split">
+
+  <!-- 왼쪽: 실험 과정 -->
+  <div class="left-pane">
+    <div class="exp-label">열평형 실험</div>
+    <div class="exp-title">실험 과정</div>
+    <div class="exp-subtitle">아래 순서에 따라 실험을 진행하세요</div>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div>
+          <div class="step-head">준비</div>
+          <div class="step-text">열량계에 <strong>뜨거운 물</strong>을 부은 후, <strong>찬물이 들어 있는 알루미늄 컵</strong>을 넣는다.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div>
+          <div class="step-head">설치</div>
+          <div class="step-text">열량계 <strong>뚜껑을 닫고</strong> 디지털 온도계를 <strong>뜨거운 물과 찬물에 각각</strong> 꽂는다.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div>
+          <div class="step-head">측정 및 기록</div>
+          <div class="step-text"><strong>1분 간격</strong>으로 뜨거운 물과 찬물의 온도를 측정하여 <strong>활동지에 기록</strong>한다.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div>
+          <div class="step-head">그래프 작성</div>
+          <div class="step-text">기록한 내용을 바탕으로 오른쪽 앱에 <strong>측정값을 입력</strong>하여 <strong>그래프를 그린다.</strong></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 오른쪽: 앱 -->
+  <div class="right-pane">
+  <div class="container">
+
+    <!-- 실험 설정 -->
+    <div class="panel">
+      <div class="panel-header">⚙️ 실험 설정</div>
+      <div class="panel-body">
+        <div class="tip">💡 뜨거운 물과 차가운 물을 섞은 후, 시간에 따라 온도를 측정하세요.</div>
+        <div class="setup-grid">
+          <div class="field hot">
+            <label>🔴 뜨거운 물 처음 온도 (°C)</label>
+            <input type="number" id="initHot" placeholder="예: 70" step="0.1">
+          </div>
+          <div class="field cold">
+            <label>🔵 차가운 물 처음 온도 (°C)</label>
+            <input type="number" id="initCold" placeholder="예: 15" step="0.1">
+          </div>
+          <div class="field">
+            <label>측정 시간 간격 (분)</label>
+            <input type="number" id="interval" value="1" min="1" max="60">
+          </div>
+          <div class="field">
+            <label>측정 횟수</label>
+            <input type="number" id="rowCount" value="10" min="2" max="20">
+          </div>
+        </div>
+        <button class="btn btn-draw" style="width:100%" onclick="setupTable()">측정 표 만들기 →</button>
+      </div>
+    </div>
+
+    <!-- 데이터 입력 -->
+    <div class="panel" id="dataPanel" style="display:none">
+      <div class="panel-header">📋 측정값 입력</div>
+      <div class="panel-body">
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>시간(분)</th>
+                <th class="hot-th">🔴 뜨거운 물 (°C)</th>
+                <th class="cold-th">🔵 차가운 물 (°C)</th>
+              </tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+          </table>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-draw" onclick="drawGraph()">📈 그래프 그리기</button>
+          <button class="btn btn-clear" onclick="clearData()">초기화</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 그래프 -->
+    <div class="panel">
+      <div class="panel-header">📈 온도 변화 그래프</div>
+      <div id="graphPlaceholder" class="graph-placeholder">
+        <div class="ph-icon">📊</div>
+        <p>왼쪽에서 측정값을 입력하고<br>그래프 그리기를 눌러주세요!</p>
+      </div>
+      <div id="graphArea" style="display:none">
+        <div class="legend">
+          <div class="legend-item"><div class="legend-dot" style="background:var(--hot)"></div>뜨거운 물</div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--cold)"></div>차가운 물</div>
+        </div>
+        <div class="graph-canvas-wrap">
+          <canvas id="myChart" width="520" height="280"></canvas>
+        </div>
+        <div class="result-box" id="resultBox">
+          <h3>✅ 분석 결과</h3>
+          <div class="result-stats" id="resultStats"></div>
+        </div>
+        <!-- 패들렛 제출 -->
+        <div class="submit-area" id="submitArea">
+          <div class="submit-label">📌 우리 반 패들렛에 제출하기</div>
+          <div class="class-btns">
+            <button class="class-btn" data-class="1" onclick="selectClass(1)">1반</button>
+            <button class="class-btn" data-class="2" onclick="selectClass(2)">2반</button>
+            <button class="class-btn" data-class="3" onclick="selectClass(3)">3반</button>
+            <button class="class-btn" data-class="4" onclick="selectClass(4)">4반</button>
+          </div>
+          <button class="btn-capture" id="captureBtn" onclick="captureAndSubmit()" disabled>
+            📸 캡처하고 패들렛 열기
+          </button>
+          <div class="capture-tip">① 반 선택 → ② 캡처 버튼 클릭 → ③ 이미지 저장됨 → ④ 패들렛에 붙여넣기</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+  </div><!-- right-pane -->
+</div><!-- main-split -->
+</div><!-- page-wrap -->
+
+<script>
+let rowCount = 10;
+let interval = 1;
+let selectedClass = null;
+
+const PADLET_URLS = {
+  1: 'https://padlet.com/jjekr/1-ofw1v33wcx0x6kku',
+  2: 'https://padlet.com/jjekr/2-g1pf9ke12ires7id',
+  3: 'https://padlet.com/jjekr/3-azk1fn57g3cfxsu7',
+  4: 'https://padlet.com/jjekr/4-qiq4cavax3vmygan'
+};
+
+function setupTable() {
+  interval = parseInt(document.getElementById('interval').value) || 1;
+  rowCount = parseInt(document.getElementById('rowCount').value) || 10;
+  const initHot  = document.getElementById('initHot').value;
+  const initCold = document.getElementById('initCold').value;
+  const tbody = document.getElementById('tableBody');
+  tbody.innerHTML = '';
+
+  for (let i = 0; i <= rowCount; i++) {
+    const tr = document.createElement('tr');
+
+    // 시간 셀
+    const tdTime = document.createElement('td');
+    tdTime.className = 'time-cell';
+    tdTime.textContent = i * interval;
+    tr.appendChild(tdTime);
+
+    // 뜨거운 물 셀
+    const tdHot = document.createElement('td');
+    tdHot.className = 'hot-cell';
+    const inHot = document.createElement('input');
+    inHot.type = 'number'; inHot.step = '0.1'; inHot.placeholder = '온도';
+    inHot.id = 'hot_' + i;
+    if (i === 0 && initHot) inHot.value = initHot;
+    tdHot.appendChild(inHot);
+    tr.appendChild(tdHot);
+
+    // 차가운 물 셀
+    const tdCold = document.createElement('td');
+    tdCold.className = 'cold-cell';
+    const inCold = document.createElement('input');
+    inCold.type = 'number'; inCold.step = '0.1'; inCold.placeholder = '온도';
+    inCold.id = 'cold_' + i;
+    if (i === 0 && initCold) inCold.value = initCold;
+    tdCold.appendChild(inCold);
+    tr.appendChild(tdCold);
+
+    tbody.appendChild(tr);
+  }
+
+  document.getElementById('dataPanel').style.display = '';
+  document.getElementById('dataPanel').scrollIntoView({ behavior:'smooth', block:'start' });
+}
+
+function drawGraph() {
+  const hotData = [], coldData = [], labels = [];
+  for (let i = 0; i <= rowCount; i++) {
+    const hv = document.getElementById('hot_'+i)?.value;
+    const cv = document.getElementById('cold_'+i)?.value;
+    labels.push(i * interval + '분');
+    hotData.push(hv !== '' && hv !== undefined ? parseFloat(hv) : null);
+    coldData.push(cv !== '' && cv !== undefined ? parseFloat(cv) : null);
+  }
+  if (!hotData.some(v=>v!==null) && !coldData.some(v=>v!==null)) {
+    alert('측정값을 먼저 입력해주세요! 🌡️'); return;
+  }
+
+  document.getElementById('graphPlaceholder').style.display = 'none';
+  document.getElementById('graphArea').style.display = '';
+
+  const allVals = [...hotData,...coldData].filter(v=>v!==null);
+  let minY = Math.min(...allVals), maxY = Math.max(...allVals);
+  const pad = (maxY-minY)*0.15||5;
+  minY = Math.floor(minY-pad); maxY = Math.ceil(maxY+pad);
+
+  const canvas = document.getElementById('myChart');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const ml=58, mr=24, mt=20, mb=50;
+  const gw=W-ml-mr, gh=H-mt-mb;
+
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle='#fafaf7'; ctx.fillRect(0,0,W,H);
+  ctx.fillStyle='#fff';    ctx.fillRect(ml,mt,gw,gh);
+
+  // 그리드 & Y축 라벨
+  const ySteps = 6;
+  for (let i=0; i<=ySteps; i++) {
+    const y = mt + gh - gh*i/ySteps;
+    ctx.strokeStyle='#e8e5de'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(ml,y); ctx.lineTo(ml+gw,y); ctx.stroke();
+    ctx.fillStyle='#999'; ctx.font='10px Space Mono,monospace'; ctx.textAlign='right';
+    ctx.fillText((minY+(maxY-minY)*i/ySteps).toFixed(0)+'°', ml-5, y+4);
+  }
+  // X축 라벨
+  for (let i=0; i<=rowCount; i++) {
+    const x = ml + gw*i/rowCount;
+    ctx.strokeStyle='#e8e5de'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(x,mt); ctx.lineTo(x,mt+gh); ctx.stroke();
+    ctx.fillStyle='#999'; ctx.font='10px Noto Sans KR,sans-serif'; ctx.textAlign='center';
+    ctx.fillText(labels[i], x, mt+gh+18);
+  }
+  // 축
+  ctx.strokeStyle='#555'; ctx.lineWidth=1.5;
+  ctx.beginPath(); ctx.moveTo(ml,mt); ctx.lineTo(ml,mt+gh); ctx.lineTo(ml+gw,mt+gh); ctx.stroke();
+  // 축 이름
+  ctx.save(); ctx.translate(14, mt+gh/2); ctx.rotate(-Math.PI/2);
+  ctx.font='11px Noto Sans KR'; ctx.fillStyle='#666'; ctx.textAlign='center';
+  ctx.fillText('온도 (°C)',0,0); ctx.restore();
+  ctx.font='11px Noto Sans KR'; ctx.fillStyle='#666'; ctx.textAlign='center';
+  ctx.fillText('시간 (분)', ml+gw/2, H-6);
+
+  const toX = i => ml + gw*i/rowCount;
+  const toY = v => mt + gh - gh*(v-minY)/(maxY-minY);
+
+  function drawCurve(data, color) {
+    const pts = [];
+    for (let i=0; i<=rowCount; i++) if (data[i]!==null) pts.push({x:toX(i), y:toY(data[i])});
+    if (pts.length < 2) return;
+    const n = pts.length;
+    const dx=[], dy=[], m=[];
+    for (let i=0;i<n-1;i++) { dx.push(pts[i+1].x-pts[i].x); dy.push(pts[i+1].y-pts[i].y); }
+    for (let i=0;i<n-1;i++) {
+      const slope = dy[i]/dx[i];
+      m.push(i===0 ? slope : (slope + dy[i-1]/dx[i-1]) / 2);
+    }
+    m.push(dy[n-2]/dx[n-2]);
+    for (let i=0;i<n-1;i++) {
+      const slope = dy[i]/dx[i];
+      if (Math.abs(slope)<1e-10) { m[i]=0; m[i+1]=0; }
+      else {
+        const a=m[i]/slope, b=m[i+1]/slope, tau=a*a+b*b;
+        if (tau>9) { m[i]=3*slope*a/Math.sqrt(tau); m[i+1]=3*slope*b/Math.sqrt(tau); }
+      }
+    }
+    ctx.strokeStyle=color; ctx.lineWidth=2.5; ctx.lineJoin='round'; ctx.lineCap='round';
+    ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y);
+    for (let i=0;i<n-1;i++) {
+      const h=dx[i];
+      ctx.bezierCurveTo(pts[i].x+h/3, pts[i].y+m[i]*h/3, pts[i+1].x-h/3, pts[i+1].y-m[i+1]*h/3, pts[i+1].x, pts[i+1].y);
+    }
+    ctx.stroke();
+  }
+
+  function drawDots(data, color) {
+    for (let i=0;i<=rowCount;i++) {
+      if (data[i]===null) continue;
+      ctx.beginPath(); ctx.arc(toX(i), toY(data[i]), 2.5, 0, Math.PI*2);
+      ctx.fillStyle='#fff'; ctx.fill();
+      ctx.strokeStyle=color; ctx.lineWidth=1.5; ctx.stroke();
+    }
+  }
+
+  drawCurve(hotData, '#e84a2e');
+  drawCurve(coldData, '#2e7be8');
+  drawDots(hotData, '#e84a2e');
+  drawDots(coldData, '#2e7be8');
+
+  // 마지막 점 온도 표시
+  const lastIdx = (() => { for(let i=rowCount;i>=0;i--) if(hotData[i]!==null&&coldData[i]!==null) return i; return -1; })();
+  if (lastIdx >= 0) {
+    ctx.font = 'bold 11px Space Mono,monospace';
+    ctx.fillStyle = '#e84a2e'; ctx.textAlign='center';
+    ctx.fillText(hotData[lastIdx].toFixed(1)+'°C', toX(lastIdx), toY(hotData[lastIdx])-12);
+    ctx.fillStyle = '#2e7be8';
+    ctx.fillText(coldData[lastIdx].toFixed(1)+'°C', toX(lastIdx), toY(coldData[lastIdx])+22);
+  }
+
+  // 결과 박스
+  const firstHot  = hotData.find(v=>v!==null);
+  const firstCold = coldData.find(v=>v!==null);
+  const lastHot   = [...hotData].reverse().find(v=>v!==null);
+  const lastCold  = [...coldData].reverse().find(v=>v!==null);
+  let html = '';
+  if (firstHot  != null) html += `<div class="stat">처음 뜨거운 물: <span class="hot-val">${firstHot}°C</span></div>`;
+  if (firstCold != null) html += `<div class="stat">처음 차가운 물: <span class="cold-val">${firstCold}°C</span></div>`;
+  if (lastHot   != null) html += `<div class="stat">나중 뜨거운 물: <span class="hot-val">${lastHot}°C</span></div>`;
+  if (lastCold  != null) html += `<div class="stat">나중 차가운 물: <span class="cold-val">${lastCold}°C</span></div>`;
+  document.getElementById('resultStats').innerHTML = html;
+  document.getElementById('resultBox').classList.add('show');
+  document.getElementById('submitArea').classList.add('show');
+}
+
+function clearData() {
+  if (!confirm('입력한 데이터를 모두 지울까요?')) return;
+  for (let i=0; i<=rowCount; i++) {
+    const h = document.getElementById('hot_'+i);
+    const c = document.getElementById('cold_'+i);
+    if (h) h.value=''; if (c) c.value='';
+  }
+  document.getElementById('initHot').value='';
+  document.getElementById('initCold').value='';
+  document.getElementById('interval').value=1;
+  document.getElementById('rowCount').value=10;
+  document.getElementById('dataPanel').style.display='none';
+  document.getElementById('graphPlaceholder').style.display='';
+  document.getElementById('graphArea').style.display='none';
+  document.getElementById('resultBox').classList.remove('show');
+  document.getElementById('submitArea').classList.remove('show');
+  selectedClass = null;
+  document.querySelectorAll('.class-btn').forEach(b=>b.classList.remove('selected'));
+  document.getElementById('captureBtn').disabled = true;
+}
+
+function selectClass(num) {
+  selectedClass = num;
+  document.querySelectorAll('.class-btn').forEach(btn => {
+    btn.classList.toggle('selected', parseInt(btn.dataset.class) === num);
+  });
+  document.getElementById('captureBtn').disabled = false;
+}
+
+function captureAndSubmit() {
+  if (!selectedClass) return;
+  const btn = document.getElementById('captureBtn');
+  btn.textContent = '⏳ 캡처 중...';
+  btn.disabled = true;
+
+  try {
+    // 그래프 canvas를 직접 이미지로 변환
+    const graphCanvas = document.getElementById('myChart');
+
+    // 결과 텍스트도 포함한 합성 캔버스 생성
+    const statsEl = document.getElementById('resultStats');
+    const statsText = statsEl ? statsEl.innerText : '';
+
+    const exportCanvas = document.createElement('canvas');
+    const padding = 20;
+    const textAreaH = statsText ? 60 : 0;
+    exportCanvas.width  = graphCanvas.width  + padding * 2;
+    exportCanvas.height = graphCanvas.height + padding * 2 + textAreaH;
+    const ectx = exportCanvas.getContext('2d');
+
+    // 배경
+    ectx.fillStyle = '#ffffff';
+    ectx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
+
+    // 그래프 붙이기
+    ectx.drawImage(graphCanvas, padding, padding);
+
+    // 결과 텍스트
+    if (statsText) {
+      ectx.fillStyle = '#333';
+      ectx.font = '13px sans-serif';
+      ectx.fillText(statsText.split('\n').join('  '), padding, graphCanvas.height + padding + 20);
+    }
+
+    // 학교명 워터마크
+    ectx.fillStyle = '#bbb';
+    ectx.font = '11px sans-serif';
+    ectx.textAlign = 'right';
+    ectx.fillText('조천중학교 1학년 과학실험', exportCanvas.width - padding, exportCanvas.height - 8);
+
+    // 다운로드
+    const link = document.createElement('a');
+    link.download = `열평형실험_${selectedClass}반.png`;
+    link.href = exportCanvas.toDataURL('image/png');
+    link.click();
+
+    // 패들렛 열기
+    setTimeout(() => window.open(PADLET_URLS[selectedClass], '_blank'), 600);
+
+  } catch(e) {
+    alert('캡처 중 오류가 발생했어요: ' + e.message);
+  } finally {
+    btn.textContent = '📸 캡처하고 패들렛 열기';
+    btn.disabled = false;
+  }
+}
+</script>
+</body>
+</html>
