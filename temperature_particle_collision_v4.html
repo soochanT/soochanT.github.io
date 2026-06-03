@@ -1,0 +1,204 @@
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&family=DM+Mono:wght@400;500&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+.wrap{font-family:'Noto Sans KR',sans-serif;background:var(--color-background-tertiary);border-radius:var(--border-radius-lg);overflow:hidden;}
+header{background:#1c1a17;color:#fff;padding:14px 20px;display:flex;align-items:center;gap:10px;}
+.htitle{font-size:1rem;font-weight:900;}
+.hsub{font-size:11px;color:#888;margin-top:2px;}
+.hbadge{margin-left:auto;font-size:11px;font-weight:700;padding:4px 12px;border-radius:99px;background:rgba(255,255,255,0.1);color:#ccc;}
+.guide{background:#fffdf5;border:1px solid #edd97a;border-radius:10px;margin:14px;padding:12px 16px;font-size:13px;line-height:1.7;color:#5a4a00;}
+.guide strong{color:#1c1a17;}
+.simcard{background:var(--color-background-primary);border-radius:12px;border:0.5px solid var(--color-border-tertiary);margin:0 14px;overflow:hidden;}
+.simbody{padding:16px;display:grid;grid-template-columns:1fr 220px;gap:14px;align-items:start;}
+@media(max-width:580px){.simbody{grid-template-columns:1fr;}}
+canvas{display:block;width:100%;height:260px;border-radius:8px;}
+.side{display:flex;flex-direction:column;gap:10px;}
+.tbox{background:var(--color-background-secondary);border:0.5px solid var(--color-border-tertiary);border-radius:10px;padding:14px;}
+.ttop{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;}
+.tlabel{font-size:11px;font-weight:700;color:var(--color-text-secondary);letter-spacing:1px;text-transform:uppercase;}
+.tnum{font-family:'DM Mono',monospace;font-size:2rem;font-weight:500;line-height:1;transition:color .2s;}
+input[type=range]{width:100%;cursor:pointer;margin:4px 0;accent-color:#1c1a17;}
+.rends{display:flex;justify-content:space-between;font-size:11px;color:var(--color-text-tertiary);margin-top:2px;}
+.obs{background:var(--color-background-secondary);border:0.5px solid var(--color-border-tertiary);border-radius:10px;padding:12px;}
+.obs-title{font-size:11px;font-weight:700;color:var(--color-text-secondary);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;}
+.orow{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:0.5px solid var(--color-border-tertiary);font-size:13px;}
+.orow:last-child{border-bottom:none;}
+.okey{color:var(--color-text-secondary);}
+.oval{font-family:'DM Mono',monospace;font-size:11px;font-weight:500;padding:2px 9px;border-radius:99px;transition:background .3s,color .3s;white-space:nowrap;}
+.qcard{background:var(--color-background-primary);border-radius:12px;border:0.5px solid var(--color-border-tertiary);margin:14px;padding:18px 20px;}
+.qtitle{font-size:11px;font-weight:700;color:var(--color-text-tertiary);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:12px;}
+.qlist{display:flex;flex-direction:column;gap:8px;}
+.qitem{display:flex;gap:10px;align-items:flex-start;font-size:13.5px;line-height:1.6;color:var(--color-text-secondary);}
+.qnum{width:22px;height:22px;border-radius:50%;background:var(--color-background-secondary);border:0.5px solid var(--color-border-tertiary);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--color-text-primary);flex-shrink:0;margin-top:2px;}
+</style>
+<h2 class="sr-only" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)">온도와 입자운동 시뮬레이터</h2>
+<div class="wrap">
+  <header>
+    <div><div class="htitle">온도와 입자운동 탐구</div><div class="hsub">중학교 1학년 과학</div></div>
+    <div class="hbadge">슬라이더를 움직여 관찰하세요</div>
+  </header>
+  <div class="guide">💡 아래 슬라이더로 <strong>온도를 바꿔보세요.</strong> 입자끼리 <strong>충돌</strong>할 때 어떤 일이 일어나는지 관찰하고, 학습지에 기록해 보세요.</div>
+  <div class="simcard">
+    <div class="simbody">
+      <canvas id="cv"></canvas>
+      <div class="side">
+        <div class="tbox">
+          <div class="ttop">
+            <span class="tlabel">온도</span>
+            <span class="tnum" id="tempNum">20°C</span>
+          </div>
+          <input type="range" id="sl" min="0" max="100" value="20" step="1">
+          <div class="rends"><span>0°C 낮음</span><span>높음 100°C</span></div>
+        </div>
+        <div class="obs">
+          <div class="obs-title">관찰</div>
+          <div class="orow"><span class="okey">입자 속도</span><span class="oval" id="oSpeed">느림</span></div>
+          <div class="orow"><span class="okey">움직임</span><span class="oval" id="oMotion">조용함</span></div>
+          <div class="orow"><span class="okey">충돌 빈도</span><span class="oval" id="oCollide">낮음</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="qcard">
+    <div class="qtitle">탐구 질문 — 학습지에 답해보세요</div>
+    <div class="qlist">
+      <div class="qitem"><div class="qnum">1</div>온도가 높아질수록 입자의 운동은 어떻게 달라지나요?</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+const sl = document.getElementById('sl');
+const R = 7, N = 28;
+let T = 20, particles = [];
+
+function maxSpd(t){ return 0.3 + (t/100)*5.2; }
+
+function ptCol(t){
+  if(t < 34) return {fill:'#93c5fd', stroke:'#3b82f6', arrow:'#60a5fa'};
+  if(t < 67) return {fill:'#fcd34d', stroke:'#f59e0b', arrow:'#fbbf24'};
+  return {fill:'#fca5a5', stroke:'#ef4444', arrow:'#f87171'};
+}
+
+function initParticles(){
+  particles = [];
+  const W = cv.width, H = cv.height;
+  for(let i = 0; i < N; i++){
+    const spd = maxSpd(T) * (0.5 + Math.random()*0.9);
+    const a = Math.random()*Math.PI*2;
+    let tries = 0, x, y, ok;
+    do {
+      x = R*2 + Math.random()*(W - R*4);
+      y = R*2 + Math.random()*(H - R*4);
+      ok = particles.every(p => Math.hypot(p.x-x, p.y-y) > R*2.4);
+      tries++;
+    } while(!ok && tries < 80);
+    particles.push({x, y, vx: Math.cos(a)*spd, vy: Math.sin(a)*spd});
+  }
+}
+
+function rescale(){
+  particles.forEach(p => {
+    const cur = Math.hypot(p.vx, p.vy) || 0.01;
+    const ns = maxSpd(T) * (0.5 + Math.random()*0.9);
+    p.vx = p.vx/cur*ns; p.vy = p.vy/cur*ns;
+  });
+}
+
+function resolveCollisions(){
+  for(let i = 0; i < particles.length; i++){
+    for(let j = i+1; j < particles.length; j++){
+      const a = particles[i], b = particles[j];
+      const dx = b.x-a.x, dy = b.y-a.y;
+      const dist = Math.hypot(dx, dy);
+      if(dist < R*2 && dist > 0.01){
+        const nx = dx/dist, ny = dy/dist;
+        const overlap = R*2 - dist;
+        a.x -= nx*overlap*0.5; a.y -= ny*overlap*0.5;
+        b.x += nx*overlap*0.5; b.y += ny*overlap*0.5;
+        const dvx = a.vx-b.vx, dvy = a.vy-b.vy;
+        const dot = dvx*nx + dvy*ny;
+        if(dot > 0){
+          a.vx -= dot*nx; a.vy -= dot*ny;
+          b.vx += dot*nx; b.vy += dot*ny;
+        }
+      }
+    }
+  }
+}
+
+function update(){
+  const W = cv.width, H = cv.height;
+  particles.forEach(p => {
+    p.x += p.vx; p.y += p.vy;
+    if(p.x-R < 0){p.x=R; p.vx=Math.abs(p.vx);}
+    if(p.x+R > W){p.x=W-R; p.vx=-Math.abs(p.vx);}
+    if(p.y-R < 0){p.y=R; p.vy=Math.abs(p.vy);}
+    if(p.y+R > H){p.y=H-R; p.vy=-Math.abs(p.vy);}
+  });
+  resolveCollisions();
+}
+
+function draw(){
+  const W = cv.width, H = cv.height;
+  ctx.fillStyle = '#17140f';
+  ctx.fillRect(0, 0, W, H);
+  const col = ptCol(T);
+  particles.forEach(p => {
+    const spd = Math.hypot(p.vx, p.vy);
+    if(spd > 0.05){
+      const ux=p.vx/spd, uy=p.vy/spd;
+      const len = Math.min(22, Math.max(4, spd*2.8));
+      const hl=4.5, hw=3, nx=-uy, ny=ux;
+      const ex=p.x+ux*(R+len), ey=p.y+uy*(R+len);
+      ctx.beginPath(); ctx.moveTo(p.x+ux*R, p.y+uy*R); ctx.lineTo(ex-ux*hl, ey-uy*hl);
+      ctx.strokeStyle=col.arrow; ctx.lineWidth=1.5; ctx.globalAlpha=0.5; ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(ex, ey);
+      ctx.lineTo(ex-ux*hl+nx*hw, ey-uy*hl+ny*hw);
+      ctx.lineTo(ex-ux*hl-nx*hw, ey-uy*hl-ny*hw);
+      ctx.closePath(); ctx.fillStyle=col.arrow; ctx.globalAlpha=0.7; ctx.fill();
+      ctx.globalAlpha=1;
+    }
+    ctx.beginPath(); ctx.arc(p.x, p.y, R, 0, Math.PI*2);
+    ctx.fillStyle=col.fill; ctx.globalAlpha=0.92; ctx.fill(); ctx.globalAlpha=1;
+    ctx.strokeStyle=col.stroke; ctx.lineWidth=1.2; ctx.stroke();
+  });
+}
+
+function updateObs(t){
+  const c = t<34?'#3b82f6':t<67?'#f59e0b':'#ef4444';
+  document.getElementById('tempNum').textContent = t+'°C';
+  document.getElementById('tempNum').style.color = c;
+  let speed,motion,collide;
+  if(t<=20){speed='매우 느림';motion='거의 정지';collide='매우 낮음';}
+  else if(t<=40){speed='느림';motion='조용함';collide='낮음';}
+  else if(t<=60){speed='보통';motion='활발함';collide='보통';}
+  else if(t<=80){speed='빠름';motion='매우 활발';collide='높음';}
+  else{speed='매우 빠름';motion='격렬함';collide='매우 높음';}
+  const sc={'매우 느림':'#93c5fd','느림':'#60a5fa','보통':'#fbbf24','빠름':'#f97316','매우 빠름':'#ef4444'};
+  const ce={'매우 낮음':'#93c5fd','낮음':'#60a5fa','보통':'#fbbf24','높음':'#f97316','매우 높음':'#ef4444'};
+  const se=document.getElementById('oSpeed');
+  se.textContent=speed; se.style.background=sc[speed]+'28'; se.style.color=sc[speed];
+  document.getElementById('oMotion').textContent=motion;
+  const cd=document.getElementById('oCollide');
+  cd.textContent=collide; cd.style.background=ce[collide]+'28'; cd.style.color=ce[collide];
+}
+
+sl.addEventListener('input',function(){ T=parseInt(this.value); rescale(); updateObs(T); });
+
+function loop(){ update(); draw(); requestAnimationFrame(loop); }
+
+function start(){
+  cv.width = cv.offsetWidth || 400;
+  cv.height = 260;
+  initParticles();
+  updateObs(T);
+  loop();
+}
+
+requestAnimationFrame(() => requestAnimationFrame(start));
+</script>
