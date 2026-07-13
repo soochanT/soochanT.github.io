@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>조천중학교 오목 토너먼트</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans KR',sans-serif;background:#1a1a2e;min-height:100vh;display:flex;flex-direction:column;align-items:center;color:#fff;}
+h1{font-size:clamp(14px,3vw,22px);font-weight:600;text-align:center;padding:12px 16px 4px;letter-spacing:-0.3px;}
+.subtitle{font-size:clamp(11px,2vw,13px);color:rgba(255,255,255,0.55);text-align:center;margin-bottom:10px;}
+#player-inputs{display:flex;gap:8px;justify-content:center;align-items:center;margin-bottom:10px;flex-wrap:wrap;padding:0 12px;}
+.player-box{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:10px;padding:8px 14px;}
+.player-box input{border:none;background:transparent;font-size:clamp(13px,2.5vw,15px);color:#fff;width:clamp(80px,15vw,120px);outline:none;font-family:inherit;}
+.player-box input::placeholder{color:rgba(255,255,255,0.35);}
+.pstone{width:18px;height:18px;border-radius:50%;flex-shrink:0;}
+.vs-label{font-size:13px;color:rgba(255,255,255,0.4);}
+#status-bar{text-align:center;font-size:clamp(13px,2.5vw,16px);font-weight:500;margin-bottom:4px;min-height:24px;}
+
+#score{display:flex;gap:20px;justify-content:center;margin-bottom:6px;font-size:clamp(12px,2vw,14px);color:rgba(255,255,255,0.6);}
+.score-item{display:flex;align-items:center;gap:6px;}
+.sdot{width:12px;height:12px;border-radius:50%;display:inline-block;}
+
+#board-wrap{position:relative;margin-bottom:12px;}
+#board{display:block;touch-action:none;}
+#confetti-canvas{position:absolute;top:0;left:0;pointer-events:none;}
+#win-panel{display:none;width:90%;max-width:500px;background:#16213e;border:1px solid rgba(255,255,255,0.15);border-radius:18px;padding:28px 24px 22px;text-align:center;margin-bottom:14px;}
+#win-panel.show{display:block;}
+#win-crown{font-size:clamp(32px,6vw,48px);margin-bottom:8px;}
+#win-stone-ring{width:clamp(52px,10vw,72px);height:clamp(52px,10vw,72px);border-radius:50%;margin:0 auto 12px;display:flex;align-items:center;justify-content:center;border:3px solid transparent;}
+#win-stone-ring.black-ring{border-color:#555;background:#1a1a1a;}
+#win-stone-ring.white-ring{border-color:#bbb;background:#f0ece0;}
+#win-inner-dot{width:22px;height:22px;border-radius:50%;}
+#win-stone-ring.black-ring #win-inner-dot{background:#666;}
+#win-stone-ring.white-ring #win-inner-dot{background:#ccc;}
+#win-name{font-size:clamp(20px,4vw,28px);font-weight:600;margin-bottom:6px;}
+#win-label{font-size:clamp(12px,2vw,14px);color:rgba(255,255,255,0.55);margin-bottom:4px;}
+#win-desc{font-size:clamp(12px,2vw,13px);color:rgba(255,255,255,0.5);line-height:1.7;margin-bottom:18px;}
+hr.win-div{border:none;border-top:1px solid rgba(255,255,255,0.1);margin-bottom:16px;}
+#win-panel button{width:100%;padding:12px;font-size:15px;border-radius:10px;border:none;background:#e2b96e;color:#1a1a1a;font-weight:600;cursor:pointer;}
+#controls{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;padding:0 12px 16px;}
+.ctrl-btn{font-size:clamp(12px,2.5vw,14px);padding:10px 16px;border-radius:10px;border:1px solid rgba(255,255,255,0.2);background:rgba(255,255,255,0.07);color:#fff;cursor:pointer;transition:background 0.15s;}
+.ctrl-btn:active{background:rgba(255,255,255,0.15);}
+</style>
+</head>
+<body>
+
+<h1>🏆 조천중학교 오목 토너먼트</h1>
+<div class="subtitle">흑백 교대로 5개를 먼저 연속으로 놓으면 승리</div>
+
+<div id="player-inputs">
+  <div class="player-box">
+    <div class="pstone" style="background:#1a1a1a;border:1px solid #666;"></div>
+    <input id="black-name" type="text" placeholder="흑돌 선수 이름" maxlength="10">
+  </div>
+  <span class="vs-label">vs</span>
+  <div class="player-box">
+    <div class="pstone" style="background:#f0ece0;border:1px solid #aaa;"></div>
+    <input id="white-name" type="text" placeholder="백돌 선수 이름" maxlength="10">
+  </div>
+</div>
+
+<div id="win-panel">
+  <div id="win-crown">👑</div>
+  <div id="win-stone-ring" class="black-ring"><div id="win-inner-dot"></div></div>
+  <div id="win-name">선수 이름</div>
+  <div id="win-label">흑돌 · 5목 완성</div>
+  <hr class="win-div">
+  <div id="win-desc">최종 챔피언!</div>
+  <button onclick="restartGame()">새 게임 시작</button>
+</div>
+
+<div id="status-bar">흑돌 차례</div>
+
+<div id="score">
+  <div class="score-item"><span class="sdot" style="background:#eee;border:1px solid #555;"></span><span id="black-wins-label">흑 0승</span></div>
+  <div class="score-item"><span class="sdot" style="background:#f0ece0;border:1px solid #aaa;"></span><span id="white-wins-label">백 0승</span></div>
+</div>
+
+
+<div id="board-wrap">
+  <canvas id="board"></canvas>
+  <canvas id="confetti-canvas"></canvas>
+</div>
+
+<div id="controls">
+  <button class="ctrl-btn" onclick="restartGame()">새 게임</button>
+  <button class="ctrl-btn" id="mode-btn" onclick="toggleMode()">AI 대전 모드</button>
+  <button class="ctrl-btn" onclick="undoMove()">무르기</button>
+  <button class="ctrl-btn" id="snd-btn" onclick="toggleSound()">🔊 소리 켜짐</button>
+</div>
+
+<script>
+// ── 전역 상수 / 변수 ──
+var BS = 19;
+var DIRS = [[0,1],[1,0],[1,1],[1,-1]];
+var canvas = document.getElementById('board');
+var ctx = canvas.getContext('2d');
+var cfc = document.getElementById('confetti-canvas');
+var cfx = cfc.getContext('2d');
+var BSIZE, CELL, MG;
+var board, curP, gameOver, moveHistory;
+var blackWins=0, whiteWins=0, vsAI=false, lastMove;
+var confetti=[], cfAnim=null, soundOn=true, AC=null;
+
+// ── 보드 크기 계산 ──
+function calcSize(){
+  var vw=window.innerWidth, vh=window.innerHeight;
+  var size=Math.floor(Math.min(vw-24, vh*0.62, 700));
+  return Math.max(size, 280);
+}
+function resizeBoard(){
+  BSIZE=calcSize();
+  CELL=Math.floor((BSIZE-40)/(BS-1));
+  MG=Math.floor((BSIZE-CELL*(BS-1))/2);
+  canvas.width=canvas.height=BSIZE;
+  cfc.width=cfc.height=BSIZE;
+  canvas.style.width=canvas.style.height=BSIZE+'px';
+  cfc.style.width=cfc.style.height=BSIZE+'px';
+  render();
+}
+
+// ── 유틸 ──
+function inB(r,c){ return r>=0&&r<BS&&c>=0&&c<BS; }
+function getBlack(){ return document.getElementById('black-name').value.trim()||'흑돌 선수'; }
+function getWhite(){ return document.getElementById('white-name').value.trim()||'백돌 선수'; }
+function setStatus(m){ document.getElementById('status-bar').textContent=m; }
+
+function init(){
+  board=[];
+  for(var i=0;i<BS;i++){board.push([]);for(var j=0;j<BS;j++)board[i].push(0);}
+  curP=1; gameOver=false; moveHistory=[]; lastMove=null;
+}
+
+// ── 기본 오목 로직 ──
+function inB(r,c){ return r>=0&&r<BS&&c>=0&&c<BS; }
+function countDir(r,c,dr,dc,p,b){
+  var n=0,nr=r+dr,nc=c+dc;
+  while(inB(nr,nc)&&b[nr][nc]===p){n++;nr+=dr;nc+=dc;}
+  return n;
+}
+function checkWin(r,c,p,b){
+  for(var i=0;i<DIRS.length;i++){
+    var dr=DIRS[i][0],dc=DIRS[i][1];
+    if(1+countDir(r,c,dr,dc,p,b)+countDir(r,c,-dr,-dc,p,b)>=5) return true;
+  }
+  return false;
+}
+
+// ════════════════════════════════════════
+// 렌더링
+// ════════════════════════════════════════
+function drawBoard(){
+  ctx.fillStyle='#c8a96e';
+  ctx.beginPath();ctx.roundRect(0,0,BSIZE,BSIZE,10);ctx.fill();
+  ctx.strokeStyle='#7a5c10';ctx.lineWidth=Math.max(0.8,CELL*0.03);
+  for(var i=0;i<BS;i++){
+    var x=MG+i*CELL,y=MG+i*CELL;
+    ctx.beginPath();ctx.moveTo(x,MG);ctx.lineTo(x,MG+(BS-1)*CELL);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(MG,y);ctx.lineTo(MG+(BS-1)*CELL,y);ctx.stroke();
+  }
+  var stars=[[3,3],[3,9],[3,15],[9,3],[9,9],[9,15],[15,3],[15,9],[15,15]];
+  for(var i=0;i<stars.length;i++){
+    ctx.fillStyle='#7a5c10';
+    ctx.beginPath();ctx.arc(MG+stars[i][1]*CELL,MG+stars[i][0]*CELL,Math.max(2.5,CELL*0.1),0,Math.PI*2);ctx.fill();
+  }
+}
+function drawStone(r,c,p,isLast){
+  var x=MG+c*CELL,y=MG+r*CELL,rad=CELL*0.46;
+  ctx.beginPath();ctx.arc(x,y,rad,0,Math.PI*2);
+  if(p===1){
+    ctx.fillStyle='#111';ctx.fill();
+    if(isLast){ctx.strokeStyle='#555';ctx.lineWidth=1.5;ctx.stroke();}
+  } else {
+    ctx.fillStyle='#f5f0e0';ctx.fill();
+    ctx.strokeStyle='#aaa';ctx.lineWidth=1;ctx.stroke();
+    if(isLast){ctx.strokeStyle='#888';ctx.lineWidth=2;ctx.stroke();}
+  }
+  if(isLast){
+    ctx.fillStyle='#e74c3c';
+    ctx.beginPath();ctx.arc(x,y,rad*0.22,0,Math.PI*2);ctx.fill();
+  }
+}
+
+function render(){
+  if(!BSIZE) return;
+  drawBoard();
+  for(var r=0;r<BS;r++)
+    for(var c=0;c<BS;c++)
+      if(board[r][c]) drawStone(r,c,board[r][c],lastMove&&lastMove[0]===r&&lastMove[1]===c);
+}
+
+// ── 터치/클릭 좌표 변환 ──
+function getBoardPos(clientX,clientY){
+  var rect=canvas.getBoundingClientRect();
+  var px=(clientX-rect.left)*BSIZE/rect.width;
+  var py=(clientY-rect.top)*BSIZE/rect.height;
+  return{row:Math.round((py-MG)/CELL),col:Math.round((px-MG)/CELL)};
+}
+canvas.addEventListener('click',function(e){
+  e.preventDefault();
+  if(gameOver||(vsAI&&curP===2)) return;
+  var pos=getBoardPos(e.clientX,e.clientY);
+  if(pos.row<0||pos.row>=BS||pos.col<0||pos.col>=BS) return;
+  var placed=placeStone(pos.row,pos.col);
+  if(placed&&vsAI&&!gameOver) setTimeout(aiMove,350);
+});
+canvas.addEventListener('touchend',function(e){
+  e.preventDefault();
+  if(gameOver||(vsAI&&curP===2)) return;
+  var t=e.changedTouches[0];
+  var pos=getBoardPos(t.clientX,t.clientY);
+  if(pos.row<0||pos.row>=BS||pos.col<0||pos.col>=BS) return;
+  var placed=placeStone(pos.row,pos.col);
+  if(placed&&vsAI&&!gameOver) setTimeout(aiMove,350);
+},{passive:false});
+
+// ── 사운드 ──
+function getAC(){
+  if(!AC){try{AC=new(window.AudioContext||window.webkitAudioContext)();}catch(e){return null;}}
+  if(AC.state==='suspended') AC.resume();
+  return AC;
+}
+function playStone(isBlack){
+  if(!soundOn) return;
+  var ac=getAC();if(!ac)return;
+  try{
+    var sr=ac.sampleRate,len=Math.floor(sr*0.09);
+    var buf=ac.createBuffer(1,len,sr),d=buf.getChannelData(0);
+    var freq=isBlack?800:1050;
+    for(var i=0;i<len;i++){
+      var t=i/sr,env=Math.exp(-t*55);
+      d[i]=env*(Math.sin(2*Math.PI*freq*t)*0.45+Math.sin(2*Math.PI*freq*2*t)*0.15+(Math.random()*2-1)*0.2*Math.exp(-t*180));
+    }
+    var src=ac.createBufferSource();src.buffer=buf;
+    var g=ac.createGain();g.gain.value=0.55;
+    src.connect(g);g.connect(ac.destination);src.start();
+  }catch(e){}
+}
+function playFanfare(){
+  if(!soundOn) return;
+  var ac=getAC();if(!ac)return;
+  try{
+    var now=ac.currentTime+0.05;
+    var mel=[[523.25,0,0.15],[659.25,0.15,0.15],[783.99,0.30,0.15],[1046.5,0.45,0.30],[783.99,0.75,0.10],[1046.5,0.85,0.50]];
+    var har=[[392,0,0.15],[523.25,0.15,0.15],[659.25,0.30,0.15],[830.61,0.45,0.30],[659.25,0.75,0.10],[830.61,0.85,0.50]];
+    function note(freq,start,dur,vol,type){
+      var osc=ac.createOscillator(),g=ac.createGain();
+      osc.type=type||'square';osc.frequency.value=freq;
+      var v=vol||0.18;
+      g.gain.setValueAtTime(0,now+start);
+      g.gain.linearRampToValueAtTime(v,now+start+0.015);
+      g.gain.setValueAtTime(v,now+start+dur-0.04);
+      g.gain.linearRampToValueAtTime(0,now+start+dur);
+      osc.connect(g);g.connect(ac.destination);
+      osc.start(now+start);osc.stop(now+start+dur+0.02);
+    }
+    mel.forEach(function(n){note(n[0],n[1],n[2],0.2,'square');});
+    har.forEach(function(n){note(n[0],n[1],n[2],0.1,'triangle');});
+    [0,0.15,0.30,0.45,0.85].forEach(function(t){
+      var blen=Math.floor(ac.sampleRate*0.07),bbuf=ac.createBuffer(1,blen,ac.sampleRate);
+      var bd=bbuf.getChannelData(0);
+      for(var i=0;i<blen;i++) bd[i]=(Math.random()*2-1)*Math.exp(-i/blen*30);
+      var bs=ac.createBufferSource();bs.buffer=bbuf;
+      var bg=ac.createGain();bg.gain.value=0.12;
+      bs.connect(bg);bg.connect(ac.destination);bs.start(now+t);
+    });
+  }catch(e){}
+}
+function toggleSound(){
+  soundOn=!soundOn;
+  document.getElementById('snd-btn').textContent=soundOn?'🔊 소리 켜짐':'🔇 소리 꺼짐';
+}
+
+// ── 콘페티 ──
+var CC=['#f6c90e','#e84393','#4a90d9','#2ecc71','#e74c3c','#a29bfe','#fd79a8','#00cec9'];
+function mkP(){return{x:Math.random()*BSIZE,y:-10-Math.random()*60,vx:(Math.random()-.5)*3,vy:2+Math.random()*3,w:6+Math.random()*6,h:8+Math.random()*8,color:CC[Math.floor(Math.random()*CC.length)],rot:Math.random()*360,rotV:(Math.random()-.5)*8};}
+function launchConfetti(){
+  confetti=[];
+  for(var i=0;i<120;i++) confetti.push(mkP());
+  if(cfAnim) cancelAnimationFrame(cfAnim);
+  animConf();
+  setTimeout(function(){
+    for(var i=0;i<80;i++)(function(ii){setTimeout(function(){confetti.push(mkP());if(!cfAnim)animConf();},ii*20);})(i);
+  },500);
+}
+function animConf(){
+  cfx.clearRect(0,0,BSIZE,BSIZE);
+  var alive=false;
+  for(var i=0;i<confetti.length;i++){
+    var p=confetti[i];p.x+=p.vx;p.y+=p.vy;p.rot+=p.rotV;p.vy+=0.06;
+    if(p.y<BSIZE+10) alive=true;
+    cfx.save();cfx.translate(p.x,p.y);cfx.rotate(p.rot*Math.PI/180);
+    cfx.fillStyle=p.color;cfx.globalAlpha=p.y>BSIZE*0.84?Math.max(0,(BSIZE+10-p.y)/(BSIZE*0.16+10)):1;
+    cfx.fillRect(-p.w/2,-p.h/2,p.w,p.h);cfx.restore();
+  }
+  if(alive) cfAnim=requestAnimationFrame(animConf);
+  else{cfx.clearRect(0,0,BSIZE,BSIZE);cfAnim=null;}
+}
+
+// ── 승리 패널 ──
+function showWinPanel(winnerP){
+  var winName=winnerP===1?getBlack():getWhite();
+  var loserName=winnerP===1?getWhite():getBlack();
+  document.getElementById('win-stone-ring').className=winnerP===1?'black-ring':'white-ring';
+  document.getElementById('win-name').textContent=winName+' 승리!';
+  document.getElementById('win-label').textContent=(winnerP===1?'흑돌':'백돌')+' · 5목 완성';
+  document.getElementById('win-desc').innerHTML=loserName+'을(를) 꺾고<br>조천중학교 오목 토너먼트<br><strong>최종 챔피언 🏆</strong>';
+  document.getElementById('win-panel').classList.add('show');
+  launchConfetti();
+  playFanfare();
+}
+
+// ── 착수 ──
+function placeStone(r,c){
+  if(gameOver||board[r][c]!==0) return false;
+
+  board[r][c]=curP;lastMove=[r,c];
+  moveHistory.push({r:r,c:c,player:curP});
+  playStone(curP===1);
+  render();
+
+  // 승리 체크
+  if(checkWin(r,c,curP,board)){
+    gameOver=true;
+    if(curP===1){blackWins++;document.getElementById('black-wins-label').textContent='흑 '+blackWins+'승';}
+    else{whiteWins++;document.getElementById('white-wins-label').textContent='백 '+whiteWins+'승';}
+    setStatus((curP===1?getBlack():getWhite())+' 승리! 🎉');
+    showWinPanel(curP);return true;
+  }
+  curP=curP===1?2:1;
+  setStatus((curP===1?getBlack():getWhite())+'의 차례');
+  return true;
+}
+
+// ── AI ──
+function lineInfo(r,c,dr,dc,p,b){
+  var fwd=countDir(r,c,dr,dc,p,b),bwd=countDir(r,c,-dr,-dc,p,b),total=1+fwd+bwd;
+  var efr=r+dr*(fwd+1),efc=c+dc*(fwd+1),ebr=r-dr*(bwd+1),ebc=c-dc*(bwd+1);
+  var oF=inB(efr,efc)&&b[efr][efc]===0,oB=inB(ebr,ebc)&&b[ebr][ebc]===0;
+  return{total:total,openFwd:oF,openBwd:oB};
+}
+function scorePos(r,c,p,b){
+  var tmp=[];for(var i=0;i<BS;i++)tmp.push(b[i].slice());tmp[r][c]=p;
+  var s=0;
+  for(var i=0;i<DIRS.length;i++){
+    var dr=DIRS[i][0],dc=DIRS[i][1];
+    var li=lineInfo(r,c,dr,dc,p,tmp);
+    var opens=(li.openFwd?1:0)+(li.openBwd?1:0);
+    if(li.total>=5)s+=100000;
+    else if(li.total===4&&opens>=1)s+=10000;
+    else if(li.total===3&&opens===2)s+=1000;
+    else if(li.total===3&&opens===1)s+=100;
+    else if(li.total===2&&opens===2)s+=10;
+  }
+  return s;
+}
+function aiMove(){
+  var best=-Infinity,bR=-1,bC=-1,cands=[];
+  for(var r=0;r<BS;r++)for(var c=0;c<BS;c++){
+    if(board[r][c]!==0) continue;
+    var nb=false;
+    outer:for(var dr=-2;dr<=2;dr++)for(var dc=-2;dc<=2;dc++){
+      var nr=r+dr,nc=c+dc;
+      if(inB(nr,nc)&&board[nr][nc]!==0){nb=true;break outer;}
+    }
+    if(nb||moveHistory.length===0) cands.push([r,c]);
+  }
+  if(!cands.length) return;
+  if(moveHistory.length===0){placeStone(9,9);return;}
+  for(var i=0;i<cands.length;i++){
+    var r=cands[i][0],c=cands[i][1];
+    var t=scorePos(r,c,2,board)*1.1+scorePos(r,c,1,board);
+    if(t>best){best=t;bR=r;bC=c;}
+  }
+  if(bR!==-1) placeStone(bR,bC);
+}
+
+// ── 컨트롤 ──
+function restartGame(){
+  var bw=blackWins,ww=whiteWins,ai=vsAI;
+  init();blackWins=bw;whiteWins=ww;vsAI=ai;
+  document.getElementById('win-panel').classList.remove('show');
+  if(cfAnim){cancelAnimationFrame(cfAnim);cfAnim=null;}
+  cfx.clearRect(0,0,BSIZE,BSIZE);confetti=[];
+  setStatus(getBlack()+'의 차례');render();
+}
+function toggleMode(){
+  vsAI=!vsAI;
+  document.getElementById('mode-btn').textContent=vsAI?'두 명이서 하기':'AI 대전 모드';
+  restartGame();
+}
+function undoMove(){
+  if(gameOver){
+    gameOver=false;
+    document.getElementById('win-panel').classList.remove('show');
+    if(cfAnim){cancelAnimationFrame(cfAnim);cfAnim=null;}
+    cfx.clearRect(0,0,BSIZE,BSIZE);
+  }
+  if(!moveHistory.length) return;
+  if(vsAI){
+    if(moveHistory.length>=2){
+      var m1=moveHistory.pop();board[m1.r][m1.c]=0;
+      var m2=moveHistory.pop();board[m2.r][m2.c]=0;
+      curP=1;
+    }
+  } else {
+    var m=moveHistory.pop();board[m.r][m.c]=0;
+    curP=m.player;
+  }
+  lastMove=moveHistory.length?[moveHistory[moveHistory.length-1].r,moveHistory[moveHistory.length-1].c]:null;
+  setStatus((curP===1?getBlack():getWhite())+'의 차례');render();
+}
+
+document.getElementById('black-name').addEventListener('input',function(){if(!gameOver)setStatus((curP===1?getBlack():getWhite())+'의 차례');});
+document.getElementById('white-name').addEventListener('input',function(){if(!gameOver)setStatus((curP===1?getBlack():getWhite())+'의 차례');});
+window.addEventListener('resize',function(){resizeBoard();});
+
+// ── 시작 ──
+init();
+resizeBoard();
+setStatus(getBlack()+'의 차례');
+</script>
+</body>
+</html>
