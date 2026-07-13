@@ -1,0 +1,1064 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>칠판 수도쿠</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&family=Jua&family=Nanum+Gothic:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --board: #24413a;
+    --board-dark: #1b332c;
+    --chalk: #f2efe4;
+    --chalk-dim: #cfcbb8;
+    --chalk-yellow: #e8c468;
+    --chalk-pink: #ff4d4d;
+    --chalk-green: #8fbf8f;
+    --chalk-blue: #8fb8d8;
+    --line-thin: rgba(242,239,228,0.28);
+    --line-thick: rgba(242,239,228,0.85);
+  }
+
+  *{ box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html{ touch-action: manipulation; }
+
+  body{
+    margin:0;
+    min-height:100vh;
+    min-height:100dvh;
+    background:
+      radial-gradient(ellipse at 20% 10%, rgba(255,255,255,0.04), transparent 40%),
+      radial-gradient(ellipse at 80% 90%, rgba(255,255,255,0.03), transparent 40%),
+      var(--board);
+    background-blend-mode: screen, screen, normal;
+    color: var(--chalk);
+    font-family: 'Nanum Gothic', sans-serif;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    padding: clamp(14px, 4vw, 28px) 12px calc(40px + env(safe-area-inset-bottom));
+    overflow-x:hidden;
+  }
+
+  body::before{
+    content:"";
+    position:fixed; inset:0;
+    pointer-events:none;
+    opacity:0.05;
+    background-image:
+      radial-gradient(circle at 10% 20%, #fff 0.5px, transparent 0.5px),
+      radial-gradient(circle at 60% 70%, #fff 0.5px, transparent 0.5px),
+      radial-gradient(circle at 80% 30%, #fff 0.5px, transparent 0.5px),
+      radial-gradient(circle at 30% 85%, #fff 0.5px, transparent 0.5px);
+    background-size: 140px 140px, 220px 220px, 180px 180px, 260px 260px;
+  }
+
+  h1{
+    font-family:'Gaegu', sans-serif;
+    font-weight:700;
+    font-size: clamp(28px, 8vw, 44px);
+    margin: 4px 0 2px;
+    letter-spacing: 1px;
+    text-shadow: 0 0 14px rgba(242,239,228,0.15);
+    text-align:center;
+  }
+  .subtitle{
+    font-family:'Gaegu', sans-serif;
+    color: var(--chalk-dim);
+    font-size: clamp(13px, 3.6vw, 16px);
+    margin-bottom: 18px;
+    text-align:center;
+    padding: 0 8px;
+  }
+
+  .screen{ width:100%; max-width:460px; display:flex; flex-direction:column; align-items:center; }
+
+  /* ---------- Home screen ---------- */
+  .mode-card{
+    width:100%;
+    border:2px solid var(--line-thick);
+    border-radius:14px;
+    padding:18px;
+    margin-bottom:14px;
+    cursor:pointer;
+    text-align:center;
+    background: transparent;
+    transition: transform .15s ease, background .15s ease;
+  }
+  .mode-card:hover{ background: rgba(242,239,228,0.08); transform: translateY(-2px); }
+  .mode-icon{ font-size:32px; margin-bottom:6px; }
+  .mode-title{ font-family:'Gaegu', sans-serif; font-weight:700; font-size:22px; color:var(--chalk-yellow); }
+  .mode-desc{ font-family:'Nanum Gothic'; font-size:13px; color:var(--chalk-dim); margin-top:6px; line-height:1.5; }
+
+  .level-btn{ flex-direction:column; padding:18px 10px; font-size:19px; line-height:1.5; }
+  .level-btn small{ font-family:'Nanum Gothic'; font-size:12px; color: var(--chalk-dim); }
+  .note{ font-family:'Gaegu'; color:var(--chalk-dim); font-size:14px; text-align:center; margin-top:12px; max-width:360px; line-height:1.6; }
+
+  .row{ display:flex; gap:8px; flex-wrap:wrap; justify-content:center; width:100%; max-width:460px; }
+  .row.top-row{ justify-content:space-between; align-items:center; margin-bottom:10px; }
+
+  .chalk-btn{
+    font-family:'Gaegu', sans-serif;
+    font-weight:700;
+    font-size: clamp(14px, 3.8vw, 17px);
+    color: var(--chalk);
+    background: transparent;
+    border: 2px solid var(--line-thick);
+    border-radius: 10px;
+    padding: 10px 14px;
+    min-height: 44px;
+    cursor:pointer;
+    position:relative;
+    transition: transform .12s ease, background .15s ease, box-shadow .15s ease;
+    flex: 1 1 auto;
+    min-width: 92px;
+    white-space: normal;
+    text-align:center;
+    line-height:1.25;
+  }
+  .chalk-btn:hover{ background: rgba(242,239,228,0.08); transform: translateY(-1px); }
+  .chalk-btn:active{ transform: translateY(0px) scale(0.97); }
+  .chalk-btn.active{
+    background: rgba(232,196,104,0.16);
+    border-color: var(--chalk-yellow);
+    color: var(--chalk-yellow);
+    box-shadow: 0 0 10px rgba(232,196,104,0.25);
+  }
+  .chalk-btn.primary{ border-color: var(--chalk-green); color: var(--chalk-green); }
+  .chalk-btn.primary:hover{ background: rgba(143,191,143,0.12); }
+  .chalk-btn.warn{ border-color: var(--chalk-pink); color: var(--chalk-pink); }
+  .chalk-btn.warn:hover{ background: rgba(226,114,91,0.12); }
+  .chalk-btn.back-btn{ font-size:14px; padding:8px 12px; min-height:auto; flex: 0 0 auto; min-width:auto; }
+  .chalk-btn[hidden]{ display:none; }
+
+  .status-bar{
+    display:flex; justify-content:space-between; align-items:center;
+    font-family:'Jua', sans-serif;
+    font-size: clamp(13px, 3.8vw, 17px);
+    padding: 8px 4px;
+    border-top: 1px dashed var(--line-thin);
+    border-bottom: 1px dashed var(--line-thin);
+    width: 100%;
+    gap: 6px;
+    margin-bottom: 6px;
+  }
+  .status-bar .label{ color: var(--chalk-dim); font-family:'Nanum Gothic'; font-size: 12px; margin-right:4px; }
+  #timer{ color: var(--chalk-yellow); letter-spacing: 1px; }
+  #modeLabel{ color: var(--chalk-blue); }
+  #progressLabel{ color: var(--chalk-green); }
+
+  /* ---------- Sudoku board ---------- */
+  .board-wrap{ position:relative; margin: 4px 0 18px; width: 100%; display:flex; justify-content:center; }
+  .board{
+    display:grid;
+    grid-template-columns: repeat(9, 1fr);
+    grid-template-rows: repeat(9, 1fr);
+    width: min(94vw, 58vh, 480px);
+    aspect-ratio: 1 / 1;
+    background: var(--board-dark);
+    border: 3px solid var(--chalk);
+    border-radius: 4px;
+    box-shadow: 0 0 24px rgba(0,0,0,0.35) inset;
+  }
+  .cell{
+    position:relative;
+    display:flex; align-items:center; justify-content:center;
+    font-family:'Jua', sans-serif;
+    font-size: clamp(13px, 4.6vw, 21px);
+    color: var(--chalk);
+    border: 1px solid var(--line-thin);
+    cursor:pointer;
+    user-select:none;
+    -webkit-user-select:none;
+    background: transparent;
+  }
+  .cell.given{ color: var(--chalk); font-weight: 700; cursor: default; background: rgba(242,239,228,0.045); }
+  .cell.user{ color: var(--chalk-blue); }
+
+  .cell.selected{
+    background: rgba(232,196,104,0.32);
+    box-shadow: inset 0 0 0 3px var(--chalk-yellow), 0 0 12px rgba(232,196,104,0.55);
+    z-index: 2;
+  }
+  .cell.selected.given{ color: var(--chalk-yellow); }
+  .cell.selected.user{ color: var(--chalk-yellow); }
+  .cell.peer{ background: rgba(242,239,228,0.05); }
+  .cell.same-num{ background: rgba(143,184,216,0.15); }
+
+  /* practice mode: highlight wrong cells */
+  .cell.practice-wrong{
+    background: rgba(255,77,77,0.22) !important;
+    box-shadow: inset 0 0 0 2px var(--chalk-pink);
+    color: var(--chalk-pink) !important;
+  }
+
+  /* competition mode: big full-screen O / X flash (defined near overlay styles below) */
+
+  /* thick borders for 3x3 blocks */
+  .cell[data-col="0"]{ border-left: 3px solid var(--chalk); }
+  .cell[data-col="2"], .cell[data-col="5"]{ border-right: 2px solid var(--chalk); }
+  .cell[data-col="8"]{ border-right: 3px solid var(--chalk); }
+  .cell[data-row="0"]{ border-top: 3px solid var(--chalk); }
+  .cell[data-row="2"], .cell[data-row="5"]{ border-bottom: 2px solid var(--chalk); }
+  .cell[data-row="8"]{ border-bottom: 3px solid var(--chalk); }
+
+  .numpad{
+    display:grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 7px;
+    width: min(94vw, 42vh, 340px);
+    margin: 0 auto 10px;
+  }
+  .num-btn{
+    font-family:'Jua', sans-serif;
+    font-size: clamp(15px, 4.4vw, 19px);
+    color: var(--chalk);
+    background: rgba(242,239,228,0.05);
+    border: 2px solid var(--line-thin);
+    border-radius: 8px;
+    padding: 10px 0;
+    min-height: 46px;
+    cursor:pointer;
+  }
+  .num-btn:hover{ background: rgba(242,239,228,0.12); border-color: var(--chalk); }
+  .num-btn.erase{ color: var(--chalk-pink); font-family:'Gaegu'; font-size: clamp(12px, 3.4vw, 15px); }
+
+  .result-msg{
+    font-family:'Gaegu', sans-serif;
+    font-size: clamp(15px, 4vw, 18px);
+    min-height: 26px;
+    text-align:center;
+    color: var(--chalk-dim);
+    padding: 0 10px;
+  }
+
+  .finish-card{ max-width: 360px; }
+  .finish-title{
+    font-family:'Gaegu', sans-serif;
+    font-weight:700;
+    font-size: clamp(18px, 5vw, 24px);
+    color: var(--chalk-green);
+    margin-bottom: 10px;
+  }
+  .finish-time{
+    font-family:'Jua', sans-serif;
+    font-size: clamp(56px, 18vw, 104px);
+    line-height:1;
+    color: var(--chalk-yellow);
+    text-shadow: 0 0 34px rgba(232,196,104,0.55);
+    margin: 6px 0 22px;
+    letter-spacing: 1px;
+  }
+
+  footer{
+    margin-top: 20px;
+    font-family:'Gaegu';
+    font-size: 13px;
+    color: var(--chalk-dim);
+    text-align:center;
+    max-width: min(90vw, 420px);
+    line-height:1.6;
+  }
+
+  /* ---------- Tutorial overlay ---------- */
+  .overlay{
+    position:fixed; inset:0;
+    background: rgba(10,20,17,0.85);
+    display:flex; align-items:center; justify-content:center;
+    z-index: 50;
+    padding: 16px;
+  }
+  .tutorial-card{
+    background: var(--board-dark);
+    border: 2px solid var(--chalk);
+    border-radius: 16px;
+    padding: 22px 20px;
+    max-width: 380px;
+    width: 100%;
+    text-align:center;
+    box-shadow: 0 0 30px rgba(0,0,0,0.5);
+  }
+  .tutorial-step-label{
+    font-family:'Jua', sans-serif;
+    color: var(--chalk-blue);
+    margin-bottom: 10px;
+    font-size: 13px;
+    letter-spacing: 1px;
+  }
+  .tutorial-title{
+    font-family:'Gaegu', sans-serif;
+    font-weight:700;
+    font-size: 22px;
+    color: var(--chalk-yellow);
+    margin-bottom: 12px;
+  }
+  .mini-board{
+    display:grid;
+    grid-template-columns: repeat(9,1fr);
+    grid-template-rows: repeat(9,1fr);
+    width: 160px;
+    aspect-ratio: 1/1;
+    margin: 0 auto 16px;
+    border: 2px solid var(--chalk);
+    background: var(--board-dark);
+  }
+  .mini-cell{ border: 1px solid var(--line-thin); transition: background .2s ease; }
+  .mini-cell.hl{ background: rgba(232,196,104,0.45); }
+  .mini-cell[data-col="0"]{ border-left: 2px solid var(--chalk); }
+  .mini-cell[data-col="2"], .mini-cell[data-col="5"]{ border-right: 1.5px solid var(--chalk); }
+  .mini-cell[data-col="8"]{ border-right: 2px solid var(--chalk); }
+  .mini-cell[data-row="0"]{ border-top: 2px solid var(--chalk); }
+  .mini-cell[data-row="2"], .mini-cell[data-row="5"]{ border-bottom: 1.5px solid var(--chalk); }
+  .mini-cell[data-row="8"]{ border-bottom: 2px solid var(--chalk); }
+
+  .tutorial-text{
+    font-family:'Nanum Gothic';
+    font-size: 15px;
+    line-height: 1.65;
+    margin-bottom: 18px;
+    color: var(--chalk);
+  }
+  .tutorial-nav{ justify-content:center; }
+
+  [hidden]{ display:none !important; }
+
+  /* ---------- Full-screen O / X grading flash ---------- */
+  .grade-flash{
+    position: fixed; inset: 0;
+    display:flex; align-items:center; justify-content:center;
+    pointer-events:none;
+    z-index: 70;
+  }
+  .grade-flash-bg{
+    position:absolute; inset:0;
+    background: rgba(10,20,17,0.35);
+    opacity:0;
+    animation: flashBgFade 1000ms ease forwards;
+  }
+  .flash-mark{
+    position:relative;
+    font-family:'Jua', sans-serif;
+    font-weight:900;
+    font-size: clamp(140px, 44vw, 300px);
+    line-height:1;
+    opacity: 0;
+    transform: scale(0.4);
+    animation: flashPop 1000ms cubic-bezier(.2,1.4,.4,1) forwards;
+  }
+  .flash-mark.correct{ color: var(--chalk-green); text-shadow: 0 0 40px rgba(143,191,143,0.65); }
+  .flash-mark.wrong{ color: var(--chalk-pink); text-shadow: 0 0 40px rgba(255,77,77,0.65); }
+  @keyframes flashPop{
+    0%{ opacity:0; transform: scale(0.3) rotate(-8deg); }
+    18%{ opacity:1; transform: scale(1.12) rotate(2deg); }
+    30%{ transform: scale(1) rotate(0deg); }
+    78%{ opacity:1; }
+    100%{ opacity:0; transform: scale(1.05); }
+  }
+  @keyframes flashBgFade{
+    0%{ opacity:0; }
+    15%{ opacity:1; }
+    78%{ opacity:1; }
+    100%{ opacity:0; }
+  }
+</style>
+</head>
+<body>
+
+  <h1>조천중학교 수도쿠 대회</h1>
+  <div class="subtitle">튜토리얼로 익히고, 자유연습으로 다지고, 대회모드로 겨뤄보세요</div>
+
+  <!-- HOME SCREEN -->
+  <div class="screen" id="homeScreen">
+    <div class="mode-card" id="tutorialCard">
+      <div class="mode-icon">🖍️</div>
+      <div class="mode-title">튜토리얼</div>
+      <div class="mode-desc">짧은 튜토리얼로 규칙을 배우고 연습 문제를 풀어요. 채점하면 틀린 칸을 바로 알려줘요.</div>
+    </div>
+    <div class="mode-card" id="freeplayCard">
+      <div class="mode-icon">✏️</div>
+      <div class="mode-title">자유연습모드</div>
+      <div class="mode-desc">초급·중급·상급 중 원하는 난이도를 골라 자유롭게 연습해요. 채점은 대회모드처럼 화면에 O/X로 표시돼요.</div>
+    </div>
+    <div class="mode-card" id="competitionCard">
+      <div class="mode-icon">🏆</div>
+      <div class="mode-title">대회모드</div>
+      <div class="mode-desc">초보자 2문제 · 숙련자 2문제. 모든 학생이 같은 문제를 풀고, 걸린 시간으로 시상해요.</div>
+    </div>
+  </div>
+
+  <!-- FREE PRACTICE LEVEL SELECT -->
+  <div class="screen" id="freeSelectScreen" hidden>
+    <div class="row top-row">
+      <button class="chalk-btn back-btn" id="freeBackBtn">← 처음으로</button>
+    </div>
+    <div class="row">
+      <button class="chalk-btn level-btn" data-freelevel="easy">초급</button>
+      <button class="chalk-btn level-btn" data-freelevel="mid">중급</button>
+      <button class="chalk-btn level-btn" data-freelevel="hard">상급</button>
+    </div>
+    <p class="note">난이도를 고르면 바로 문제가 생성돼요. 채점하면 화면에 크게 O/X가 표시됩니다.</p>
+  </div>
+
+  <!-- COMPETITION LEVEL SELECT -->
+  <div class="screen" id="compSelectScreen" hidden>
+    <div class="row top-row">
+      <button class="chalk-btn back-btn" id="compBackBtn">← 처음으로</button>
+    </div>
+    <div class="row">
+      <button class="chalk-btn level-btn" data-level="beginner">초보자<br><small>2문제</small></button>
+      <button class="chalk-btn level-btn" data-level="advanced">숙련자<br><small>2문제</small></button>
+    </div>
+    <p class="note">모든 학생이 동일한 문제를 풀게 돼요. 시작하는 순간 타이머가 작동합니다. 문제를 모두 풀면 총 걸린 시간이 표시돼요.</p>
+  </div>
+
+  <!-- GAME SCREEN (shared) -->
+  <div class="screen" id="gameScreen" hidden>
+    <div class="row top-row">
+      <button class="chalk-btn back-btn" id="gameBackBtn">← 처음으로</button>
+      <button class="chalk-btn back-btn" id="tutorialReopenBtn" hidden>튜토리얼 보기</button>
+      <button class="chalk-btn back-btn" id="freeChangeDiffBtn" hidden>난이도 변경</button>
+    </div>
+
+    <div class="status-bar">
+      <div><span class="label">모드</span><span id="modeLabel">-</span></div>
+      <div id="progressWrap" hidden><span class="label">문제</span><span id="progressLabel">-</span></div>
+      <div><span class="label">시간</span><span id="timer">00:00</span></div>
+    </div>
+
+    <div class="board-wrap"><div class="board" id="board"></div></div>
+    <div class="numpad" id="numpad"></div>
+
+    <div class="row">
+      <button class="chalk-btn primary" id="checkBtn">채점하기</button>
+      <button class="chalk-btn" id="undoBtn">되돌리기</button>
+      <button class="chalk-btn" id="newBtn">새 문제</button>
+    </div>
+
+    <div class="result-msg" id="resultMsg"></div>
+  </div>
+
+  <!-- TUTORIAL OVERLAY -->
+  <div class="overlay" id="tutorialOverlay" hidden>
+    <div class="tutorial-card">
+      <div class="tutorial-step-label" id="tutStepLabel">1 / 5</div>
+      <div class="tutorial-title" id="tutTitle"></div>
+      <div class="mini-board" id="miniBoard"></div>
+      <div class="tutorial-text" id="tutText"></div>
+      <div class="row tutorial-nav">
+        <button class="chalk-btn" id="tutPrevBtn">이전</button>
+        <button class="chalk-btn" id="tutSkipBtn">건너뛰기</button>
+        <button class="chalk-btn primary" id="tutNextBtn">다음</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- FULLSCREEN GRADE FLASH (competition mode) -->
+  <div class="grade-flash" id="gradeFlash" hidden>
+    <div class="grade-flash-bg"></div>
+    <div class="flash-mark" id="flashMark"></div>
+  </div>
+
+  <!-- FULLSCREEN FINISH TIME OVERLAY -->
+  <div class="overlay" id="finishOverlay" hidden>
+    <div class="tutorial-card finish-card">
+      <div class="finish-title" id="finishTitle">🎉 모두 정답이에요!</div>
+      <div class="finish-time" id="finishTime">00:00</div>
+      <button class="chalk-btn primary" id="finishCloseBtn">확인</button>
+    </div>
+  </div>
+
+<footer>튜토리얼은 처음 들어가면 짧은 규칙 설명을 먼저 보여줘요. 자유연습모드는 난이도를 골라 혼자 연습하기 좋고, 대회모드는 학급 대회용으로 모든 학생에게 같은 문제가 출제됩니다.</footer>
+
+<script>
+(function(){
+  const N = 9;
+
+  // ---------- DOM refs ----------
+  const homeScreen = document.getElementById('homeScreen');
+  const freeSelectScreen = document.getElementById('freeSelectScreen');
+  const compSelectScreen = document.getElementById('compSelectScreen');
+  const gameScreen = document.getElementById('gameScreen');
+  const tutorialOverlay = document.getElementById('tutorialOverlay');
+
+  const boardEl = document.getElementById('board');
+  const numpadEl = document.getElementById('numpad');
+  const timerEl = document.getElementById('timer');
+  const modeLabelEl = document.getElementById('modeLabel');
+  const progressWrap = document.getElementById('progressWrap');
+  const progressLabelEl = document.getElementById('progressLabel');
+  const resultMsg = document.getElementById('resultMsg');
+  const finishOverlay = document.getElementById('finishOverlay');
+  const finishTitle = document.getElementById('finishTitle');
+  const finishTime = document.getElementById('finishTime');
+  const newBtn = document.getElementById('newBtn');
+  const undoBtn = document.getElementById('undoBtn');
+  const tutorialReopenBtn = document.getElementById('tutorialReopenBtn');
+  const freeChangeDiffBtn = document.getElementById('freeChangeDiffBtn');
+
+  // ---------- Fixed competition puzzles (same for every student, from uploaded worksheet) ----------
+  const COMPETITION_PUZZLES = {
+    beginner: [ // 난이도 ★★
+      "874006005000000000000094800000750960003169728960020103130600480048001500705040306",
+      "004000138130960000750008690947051386306000520500830007203609470005120860860745000"
+    ],
+    advanced: [ // 난이도 ★★★
+      "005000394003050008087000061000064015150090603430500007094603002000205000520040100",
+      "003080005460072083980050700640803009000001600000460800000000006576019000238647950"
+    ]
+  };
+
+  // ---------- Shared puzzle state ----------
+  let given = [];
+  let userGrid = [];
+  let selected = null;
+  let solved = false;
+  let history = []; // undo stack: {r, c, prevVal}
+
+  // ---------- Free-practice difficulty presets ----------
+  const FREE_DIFF = {
+    easy: { label: '초급', givens: 50 },
+    mid:  { label: '중급', givens: 38 },
+    hard: { label: '상급', givens: 25 }
+  };
+
+  // ---------- Mode state ----------
+  let mode = null;          // 'practice' | 'freeplay' | 'competition'
+  let compLevel = null;     // 'beginner' | 'advanced'
+  let compIndex = 0;
+  let compPuzzles = [];
+  let freeLevel = null;     // 'easy' | 'mid' | 'hard'
+  let tutorialSeen = false;
+  let tutorialOnDone = null;
+
+  // ---------- Timer ----------
+  let timerInterval = null;
+  let seconds = 0;
+  function startTimer(){
+    if(timerInterval) return;
+    timerInterval = setInterval(() => {
+      seconds++;
+      timerEl.textContent = formatTime(seconds);
+    }, 1000);
+  }
+  function stopTimer(){ clearInterval(timerInterval); timerInterval = null; }
+  function resetTimer(){ stopTimer(); seconds = 0; timerEl.textContent = '00:00'; }
+  function formatTime(s){
+    const m = Math.floor(s/60).toString().padStart(2,'0');
+    const sec = (s%60).toString().padStart(2,'0');
+    return m+':'+sec;
+  }
+
+  // ---------- Sudoku generation (practice mode: random each time) ----------
+  function emptyGrid(){ return Array.from({length:N}, () => Array(N).fill(0)); }
+  function shuffle(arr){
+    for(let i=arr.length-1;i>0;i--){
+      const j = Math.floor(Math.random()*(i+1));
+      [arr[i],arr[j]] = [arr[j],arr[i]];
+    }
+    return arr;
+  }
+  function isValid(grid, r, c, val){
+    for(let i=0;i<N;i++){
+      if(grid[r][i]===val) return false;
+      if(grid[i][c]===val) return false;
+    }
+    const br = Math.floor(r/3)*3, bc = Math.floor(c/3)*3;
+    for(let i=br;i<br+3;i++) for(let j=bc;j<bc+3;j++) if(grid[i][j]===val) return false;
+    return true;
+  }
+  // Rule-based conflict check for grading (supports multiple valid solutions):
+  // a filled cell is "wrong" if its value duplicates another cell in the
+  // same row, column, or 3x3 box — regardless of what the "official" solution is.
+  function hasConflict(grid, r, c, val){
+    for(let i=0;i<N;i++){
+      if(i!==c && grid[r][i]===val) return true;
+      if(i!==r && grid[i][c]===val) return true;
+    }
+    const br = Math.floor(r/3)*3, bc = Math.floor(c/3)*3;
+    for(let i=br;i<br+3;i++){
+      for(let j=bc;j<bc+3;j++){
+        if((i!==r || j!==c) && grid[i][j]===val) return true;
+      }
+    }
+    return false;
+  }
+  function fillGrid(grid){
+    for(let r=0;r<N;r++){
+      for(let c=0;c<N;c++){
+        if(grid[r][c]===0){
+          const nums = shuffle([1,2,3,4,5,6,7,8,9]);
+          for(const v of nums){
+            if(isValid(grid,r,c,v)){
+              grid[r][c]=v;
+              if(fillGrid(grid)) return true;
+              grid[r][c]=0;
+            }
+          }
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+  function generatePracticePuzzle(givensCount){
+    const full = emptyGrid();
+    fillGrid(full);
+    const pz = full.map(row => row.slice());
+    const cells = [];
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++) cells.push([r,c]);
+    shuffle(cells);
+    const toRemove = 81 - givensCount;
+    let removed = 0;
+    for(const [r,c] of cells){
+      if(removed >= toRemove) break;
+      pz[r][c] = 0;
+      removed++;
+    }
+    return { full, pz };
+  }
+  function parsePuzzleString(str){
+    const grid = emptyGrid();
+    for(let i=0;i<81;i++){
+      grid[Math.floor(i/9)][i%9] = parseInt(str[i],10);
+    }
+    return grid;
+  }
+
+  // ---------- Board rendering ----------
+  function buildBoardDOM(){
+    boardEl.innerHTML = '';
+    for(let r=0;r<N;r++){
+      for(let c=0;c<N;c++){
+        const cell = document.createElement('div');
+        cell.className = 'cell';
+        cell.dataset.row = r;
+        cell.dataset.col = c;
+        cell.addEventListener('click', () => selectCell(r,c));
+        boardEl.appendChild(cell);
+      }
+    }
+  }
+  function buildNumpad(){
+    numpadEl.innerHTML = '';
+    for(let n=1;n<=9;n++){
+      const b = document.createElement('button');
+      b.className = 'num-btn';
+      b.textContent = n;
+      b.addEventListener('click', () => inputNumber(n));
+      numpadEl.appendChild(b);
+    }
+    const erase = document.createElement('button');
+    erase.className = 'num-btn erase';
+    erase.textContent = '지우기';
+    erase.addEventListener('click', () => inputNumber(0));
+    numpadEl.appendChild(erase);
+  }
+  function renderBoard(){
+    const cells = boardEl.children;
+    for(let r=0;r<N;r++){
+      for(let c=0;c<N;c++){
+        const idx = r*9+c;
+        const cellEl = cells[idx];
+        cellEl.className = 'cell';
+        cellEl.textContent = '';
+        const val = userGrid[r][c];
+        if(given[r][c]){
+          cellEl.classList.add('given');
+          cellEl.textContent = val;
+        } else if(val !== 0){
+          cellEl.classList.add('user');
+          cellEl.textContent = val;
+        }
+      }
+    }
+    highlightSelection();
+  }
+  function highlightSelection(){
+    const cells = boardEl.children;
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++) cells[r*9+c].classList.remove('selected','peer','same-num');
+    if(!selected) return;
+    const {r:sr,c:sc} = selected;
+    const selVal = userGrid[sr][sc];
+    for(let r=0;r<N;r++){
+      for(let c=0;c<N;c++){
+        const el = cells[r*9+c];
+        const sameRow = r===sr, sameCol = c===sc;
+        const sameBox = Math.floor(r/3)===Math.floor(sr/3) && Math.floor(c/3)===Math.floor(sc/3);
+        if(sameRow || sameCol || sameBox) el.classList.add('peer');
+        if(selVal !== 0 && userGrid[r][c] === selVal) el.classList.add('same-num');
+      }
+    }
+    cells[sr*9+sc].classList.add('selected');
+  }
+  function selectCell(r,c){
+    if(solved) return;
+    selected = {r,c};
+    highlightSelection();
+  }
+  function clearGradeMarks(){
+    const cells = boardEl.children;
+    for(const el of cells) el.classList.remove('practice-wrong');
+    resultMsg.textContent = '';
+  }
+  function inputNumber(n){
+    if(!selected || solved) return;
+    const {r,c} = selected;
+    if(given[r][c]) return;
+    const prevVal = userGrid[r][c];
+    if(prevVal === n) return; // no actual change, skip history entry
+    history.push({r, c, prevVal});
+    userGrid[r][c] = n;
+    clearGradeMarks();
+    renderBoard();
+    if(mode === 'practice' || mode === 'freeplay') startTimer();
+  }
+
+  function undoLast(){
+    if(solved || history.length === 0) return;
+    const last = history.pop();
+    userGrid[last.r][last.c] = last.prevVal;
+    selected = {r: last.r, c: last.c};
+    clearGradeMarks();
+    renderBoard();
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if(gameScreen.hidden) return;
+    if(!selected) return;
+    if(e.key >= '1' && e.key <= '9'){
+      inputNumber(parseInt(e.key,10));
+    } else if(e.key === 'Backspace' || e.key === 'Delete' || e.key === '0'){
+      inputNumber(0);
+    } else if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)){
+      let {r,c} = selected;
+      if(e.key==='ArrowUp') r = Math.max(0,r-1);
+      if(e.key==='ArrowDown') r = Math.min(8,r+1);
+      if(e.key==='ArrowLeft') c = Math.max(0,c-1);
+      if(e.key==='ArrowRight') c = Math.min(8,c+1);
+      selectCell(r,c);
+      e.preventDefault();
+    }
+  });
+
+  // ---------- Grading ----------
+  let grading = false;
+  function grade(){
+    if(solved || grading) return;
+    if(mode === 'competition') gradeCompetition();
+    else if(mode === 'freeplay') gradeFreeplay();
+    else gradePractice();
+  }
+
+  function gradePractice(){
+    let wrong = 0, empty = 0;
+    const cells = boardEl.children;
+    for(let r=0;r<N;r++){
+      for(let c=0;c<N;c++){
+        if(given[r][c]) continue;
+        const el = cells[r*9+c];
+        el.classList.remove('practice-wrong');
+        const val = userGrid[r][c];
+        if(val === 0){ empty++; continue; }
+        if(hasConflict(userGrid, r, c, val)){
+          el.classList.add('practice-wrong');
+          wrong++;
+        }
+      }
+    }
+    if(wrong === 0 && empty === 0){
+      stopTimer();
+      solved = true;
+      showFinish('🎉 모두 정답이에요!');
+    }
+  }
+
+  function gradeCompetition(){
+    let correct = 0, wrong = 0, empty = 0;
+    for(let r=0;r<N;r++){
+      for(let c=0;c<N;c++){
+        if(given[r][c]) continue;
+        const val = userGrid[r][c];
+        if(val === 0){ empty++; continue; }
+        if(hasConflict(userGrid, r, c, val)) wrong++;
+        else correct++;
+      }
+    }
+    const isPerfect = (wrong === 0 && empty === 0);
+    if(isPerfect){
+      resultMsg.textContent = '';
+      showGradeFlash(true, () => advanceCompetition());
+    } else {
+      showGradeFlash(false);
+    }
+  }
+
+  function gradeFreeplay(){
+    let correct = 0, wrong = 0, empty = 0;
+    for(let r=0;r<N;r++){
+      for(let c=0;c<N;c++){
+        if(given[r][c]) continue;
+        const val = userGrid[r][c];
+        if(val === 0){ empty++; continue; }
+        if(hasConflict(userGrid, r, c, val)) wrong++;
+        else correct++;
+      }
+    }
+    const isPerfect = (wrong === 0 && empty === 0);
+    if(isPerfect){
+      resultMsg.textContent = '';
+      showGradeFlash(true, () => {
+        stopTimer();
+        solved = true;
+        showFinish('🎉 모두 정답이에요!');
+      });
+    } else {
+      showGradeFlash(false);
+    }
+  }
+
+  function showFinish(title){
+    finishTitle.textContent = title;
+    finishTime.textContent = formatTime(seconds);
+    finishOverlay.hidden = false;
+  }
+  document.getElementById('finishCloseBtn').addEventListener('click', () => {
+    finishOverlay.hidden = true;
+  });
+
+  function showGradeFlash(isCorrect, onFinish){
+    grading = true;
+    const flashEl = document.getElementById('gradeFlash');
+    const markEl = document.getElementById('flashMark');
+    markEl.textContent = isCorrect ? 'O' : 'X';
+    markEl.className = 'flash-mark ' + (isCorrect ? 'correct' : 'wrong');
+    // restart animation
+    markEl.style.animation = 'none';
+    void markEl.offsetWidth;
+    markEl.style.animation = '';
+    flashEl.hidden = false;
+    setTimeout(() => {
+      flashEl.hidden = true;
+      grading = false;
+      if(onFinish) onFinish();
+    }, 1000);
+  }
+
+  function advanceCompetition(){
+    const total = compPuzzles.length;
+    if(compIndex + 1 < total){
+      compIndex++;
+      resultMsg.textContent = `🎉 문제 ${compIndex} / ${total} 완료! 다음 문제로 넘어갈게요.`;
+      loadCompetitionPuzzle(compIndex);
+    } else {
+      stopTimer();
+      solved = true;
+      progressLabelEl.textContent = `${total} / ${total}`;
+      resultMsg.textContent = '';
+      showFinish('🏆 대회 완료!');
+    }
+  }
+
+  // ---------- Mode setup ----------
+  function loadCompetitionPuzzle(idx){
+    const puzzleStr = compPuzzles[idx];
+    const pz = parsePuzzleString(puzzleStr);
+    given = pz.map(row => row.map(v => v !== 0));
+    userGrid = pz.map(row => row.slice());
+    selected = null;
+    history = [];
+    resultMsg.textContent = '';
+    finishOverlay.hidden = true;
+    progressLabelEl.textContent = `${idx+1} / ${compPuzzles.length}`;
+    renderBoard();
+  }
+
+  function startCompetition(level){
+    mode = 'competition';
+    compLevel = level;
+    compPuzzles = COMPETITION_PUZZLES[level];
+    compIndex = 0;
+    solved = false;
+    modeLabelEl.textContent = `대회모드 · ${level === 'beginner' ? '초보자' : '숙련자'}`;
+    progressWrap.hidden = false;
+    newBtn.hidden = true;
+    tutorialReopenBtn.hidden = true;
+    freeChangeDiffBtn.hidden = true;
+    resetTimer();
+    loadCompetitionPuzzle(0);
+    startTimer();
+    showScreen('game');
+  }
+
+  function startPractice(){
+    mode = 'practice';
+    solved = false;
+    modeLabelEl.textContent = '튜토리얼';
+    progressWrap.hidden = true;
+    newBtn.hidden = false;
+    tutorialReopenBtn.hidden = false;
+    freeChangeDiffBtn.hidden = true;
+    const { pz } = generatePracticePuzzle(50);
+    given = pz.map(row => row.map(v => v !== 0));
+    userGrid = pz.map(row => row.slice());
+    selected = null;
+    history = [];
+    resultMsg.textContent = '';
+    finishOverlay.hidden = true;
+    resetTimer();
+    renderBoard();
+    showScreen('game');
+  }
+
+  function startFreeplay(level){
+    mode = 'freeplay';
+    freeLevel = level;
+    solved = false;
+    modeLabelEl.textContent = `자유연습 · ${FREE_DIFF[level].label}`;
+    progressWrap.hidden = true;
+    newBtn.hidden = false;
+    tutorialReopenBtn.hidden = true;
+    freeChangeDiffBtn.hidden = false;
+    const { pz } = generatePracticePuzzle(FREE_DIFF[level].givens);
+    given = pz.map(row => row.map(v => v !== 0));
+    userGrid = pz.map(row => row.slice());
+    selected = null;
+    history = [];
+    resultMsg.textContent = '';
+    finishOverlay.hidden = true;
+    resetTimer();
+    renderBoard();
+    showScreen('game');
+  }
+
+  function showScreen(name){
+    homeScreen.hidden = name !== 'home';
+    freeSelectScreen.hidden = name !== 'freeSelect';
+    compSelectScreen.hidden = name !== 'compSelect';
+    gameScreen.hidden = name !== 'game';
+  }
+
+  document.getElementById('tutorialCard').addEventListener('click', () => {
+    if(!tutorialSeen){
+      openTutorial(() => { tutorialSeen = true; startPractice(); }, '연습 시작하기');
+    } else {
+      startPractice();
+    }
+  });
+  document.getElementById('freeplayCard').addEventListener('click', () => showScreen('freeSelect'));
+  document.getElementById('freeBackBtn').addEventListener('click', () => showScreen('home'));
+  document.getElementById('competitionCard').addEventListener('click', () => showScreen('compSelect'));
+  document.getElementById('compBackBtn').addEventListener('click', () => showScreen('home'));
+  document.getElementById('gameBackBtn').addEventListener('click', () => {
+    stopTimer();
+    showScreen('home');
+  });
+  document.querySelectorAll('.level-btn[data-level]').forEach(b => {
+    b.addEventListener('click', () => startCompetition(b.dataset.level));
+  });
+  document.querySelectorAll('.level-btn[data-freelevel]').forEach(b => {
+    b.addEventListener('click', () => startFreeplay(b.dataset.freelevel));
+  });
+  document.getElementById('checkBtn').addEventListener('click', grade);
+  undoBtn.addEventListener('click', undoLast);
+  newBtn.addEventListener('click', () => {
+    if(mode==='practice') startPractice();
+    else if(mode==='freeplay') startFreeplay(freeLevel);
+  });
+  tutorialReopenBtn.addEventListener('click', () => {
+    openTutorial(() => { closeTutorial(); }, '닫기');
+  });
+  freeChangeDiffBtn.addEventListener('click', () => {
+    stopTimer();
+    showScreen('freeSelect');
+  });
+
+  // ---------- Tutorial ----------
+  const miniBoardEl = document.getElementById('miniBoard');
+  const tutStepLabel = document.getElementById('tutStepLabel');
+  const tutTitle = document.getElementById('tutTitle');
+  const tutText = document.getElementById('tutText');
+  const tutPrevBtn = document.getElementById('tutPrevBtn');
+  const tutNextBtn = document.getElementById('tutNextBtn');
+  const tutSkipBtn = document.getElementById('tutSkipBtn');
+
+  function buildMiniBoard(){
+    miniBoardEl.innerHTML = '';
+    for(let r=0;r<9;r++){
+      for(let c=0;c<9;c++){
+        const cell = document.createElement('div');
+        cell.className = 'mini-cell';
+        cell.dataset.row = r;
+        cell.dataset.col = c;
+        miniBoardEl.appendChild(cell);
+      }
+    }
+  }
+  function highlightMini(type){
+    const cells = miniBoardEl.children;
+    for(const el of cells) el.classList.remove('hl');
+    if(type === 'row'){
+      for(let c=0;c<9;c++) cells[4*9+c].classList.add('hl');
+    } else if(type === 'col'){
+      for(let r=0;r<9;r++) cells[r*9+4].classList.add('hl');
+    } else if(type === 'box'){
+      for(let r=3;r<6;r++) for(let c=3;c<6;c++) cells[r*9+c].classList.add('hl');
+    }
+  }
+
+  const TUTORIAL_STEPS = [
+    { title: '스도쿠가 뭐예요?', text: '9×9 칸을 1부터 9까지의 숫자로 채우는 논리 퍼즐이에요. 규칙 3가지만 알면 누구나 풀 수 있어요!', hl: 'none' },
+    { title: '규칙 1 · 가로줄', text: '가로줄(행) 9칸에는 1~9가 딱 한 번씩만 들어가야 해요. 같은 숫자가 두 번 들어가면 안 돼요.', hl: 'row' },
+    { title: '규칙 2 · 세로줄', text: '세로줄(열) 9칸에도 1~9가 딱 한 번씩만 들어가야 해요.', hl: 'col' },
+    { title: '규칙 3 · 3×3 박스', text: '굵은 선으로 묶인 3×3 박스 안에도 1~9가 딱 한 번씩만 들어가야 해요.', hl: 'box' },
+    { title: '입력 방법', text: '빈 칸을 클릭한 뒤 숫자를 누르면 입력돼요. "지우기"로 지우고, "채점하기"로 확인할 수 있어요. 이제 10분 동안 연습해볼까요?', hl: 'none' }
+  ];
+  let tutIndex = 0;
+  let tutLastLabel = '연습 시작하기';
+
+  function openTutorial(onDone, lastBtnLabel){
+    tutorialOnDone = onDone;
+    tutIndex = 0;
+    tutLastLabel = lastBtnLabel || '연습 시작하기';
+    renderTutStep();
+    tutorialOverlay.hidden = false;
+  }
+  function closeTutorial(){
+    tutorialOverlay.hidden = true;
+  }
+  function renderTutStep(){
+    const step = TUTORIAL_STEPS[tutIndex];
+    tutStepLabel.textContent = `${tutIndex+1} / ${TUTORIAL_STEPS.length}`;
+    tutTitle.textContent = step.title;
+    tutText.textContent = step.text;
+    highlightMini(step.hl);
+    tutPrevBtn.disabled = tutIndex === 0;
+    tutPrevBtn.style.opacity = tutIndex === 0 ? 0.4 : 1;
+    tutNextBtn.textContent = (tutIndex === TUTORIAL_STEPS.length - 1) ? tutLastLabel : '다음';
+  }
+  tutPrevBtn.addEventListener('click', () => {
+    if(tutIndex > 0){ tutIndex--; renderTutStep(); }
+  });
+  tutNextBtn.addEventListener('click', () => {
+    if(tutIndex < TUTORIAL_STEPS.length - 1){
+      tutIndex++;
+      renderTutStep();
+    } else {
+      closeTutorial();
+      if(tutorialOnDone) tutorialOnDone();
+    }
+  });
+  tutSkipBtn.addEventListener('click', () => {
+    closeTutorial();
+    if(tutorialOnDone) tutorialOnDone();
+  });
+
+  // ---------- init ----------
+  buildBoardDOM();
+  buildNumpad();
+  buildMiniBoard();
+  showScreen('home');
+})();
+</script>
+</body>
+</html>
